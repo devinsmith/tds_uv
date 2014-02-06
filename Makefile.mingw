@@ -1,0 +1,29 @@
+# Makefile for libtdsuv
+
+.PHONY: all clean
+
+# Source files for the tdsuv test
+SRCS = tds_uv.c
+OBJS = tds_uv.o
+
+CC = gcc
+INTERNAL_CFLAGS = -Wall -O2 -I../OpenSource/libuv/include -I.
+CPPFLAGS += -MMD -MP -MT $@
+LDFLAGS = -Ld:\libs\64\libuv
+
+EXE = tds_uv.exe
+LIBS = -luv -lws2_32 -lpsapi -liphlpapi
+
+all: $(EXE)
+
+$(EXE): $(OBJS)
+	$(CC) $(INTERNAL_CFLAGS) -o $(EXE) $(OBJS) $(LDFLAGS) $(LIBS)
+
+clean:
+	rm -f $(EXE) $(OBJS)
+
+.c.o:
+	$(CC) $(INTERNAL_CFLAGS) $(CPPFLAGS) -o $@ -c $<
+
+# Include automatically generated dependency files
+-include $(wildcard *.d)
