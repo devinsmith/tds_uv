@@ -5,6 +5,13 @@
 
 uv_loop_t *loop;
 
+struct connection {
+	char *server;
+	char *port;
+	char *instance;
+};
+
+
 static void
 on_connect(uv_connect_t *req, int status)
 {
@@ -43,32 +50,74 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	    on_connect);
 
 	uv_freeaddrinfo(res);
+	free(resolver);
+}
+
+int
+resolve_connect(struct connection *conn)
+{
+	int r;
+	uv_getaddrinfo_t *resolver;
+
+	resolver = (uv_getaddrinfo_t *)malloc(sizeof(uv_getaddrinfo_t));
+	resolver->data = conn;
+	r = uv_getaddrinfo(loop, resolver, on_resolved, conn->server, conn->port,
+	    NULL);
+
+	if (r) {
+		free(resolver);
+		fprintf(stderr, "getaddrinfo call error %s\n", uv_strerror(r));
+		return 1;
+	}
+
+	return r;
+}
+
+static void
+args_required(char *arg)
+{
+	fprintf(stderr, "option '%s' expects a parameter.\n", arg);
+	exit(1);
 }
 
 int
 main(int argc, char *argv[])
 {
-	int r;
-	uv_getaddrinfo_t resolver;
-	char *port = NULL;
+	struct connection conn;
 
-	if (argc < 2) {
+	memset(&conn, 0, sizeof(struct connection));
+	/* Parse arguments */
+	while (--argc) {
+		char *p = *++argv;
+
+		if (!strcmp(p, "-s")) {
+			if (!argv[1]) {
+				args_required(p);
+			}
+			conn.server = *++argv, --argc;
+		} else if (!strcmp(p, "-i")) {
+			if (!argv[1]) {
+				args_required(p);
+			}
+			conn.instance = *++argv, --argc;
+		} else if (!strcmp(p, "-p")) {
+			if (!argv[1]) {
+				args_required(p);
+			}
+			conn.port = *++argv, --argc;
+		}
+	}
+
+	if (!conn.server) {
 		fprintf(stderr, "Please specify a hostname\n");
 		return 1;
 	}
 
-	if (argc > 2) {
-		port = argv[2];
-	}
-
 	loop = uv_default_loop();
 
-	r = uv_getaddrinfo(loop, &resolver, on_resolved, argv[1], port,
-	    NULL);
-
-	if (r) {
-		fprintf(stderr, "getaddrinfo call error %s\n", uv_strerror(r));
+	if (resolve_connect(&conn) != 0) {
 		return 1;
 	}
+
 	return uv_run(loop, UV_RUN_DEFAULT);
 }
