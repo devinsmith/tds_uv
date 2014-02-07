@@ -41,8 +41,8 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
 	fprintf(stderr, "%s\n", addr);
 
-	connect_req = (uv_connect_t *)malloc(sizeof(uv_connect_t));
-	socket = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
+	connect_req = malloc(sizeof(uv_connect_t));
+	socket = malloc(sizeof(uv_tcp_t));
 	uv_tcp_init(loop, socket);
 
 	connect_req->data = (void*) socket;
@@ -59,7 +59,7 @@ resolve_connect(struct connection *conn)
 	int r;
 	uv_getaddrinfo_t *resolver;
 
-	resolver = (uv_getaddrinfo_t *)malloc(sizeof(uv_getaddrinfo_t));
+	resolver = malloc(sizeof(uv_getaddrinfo_t));
 	resolver->data = conn;
 	r = uv_getaddrinfo(loop, resolver, on_resolved, conn->server, conn->port,
 	    NULL);
