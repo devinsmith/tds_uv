@@ -17,10 +17,88 @@
 /* Implementation for Microsoft SQL Server Resolution Protocol. */
 /* See [MC-SQLR].pdf for specification */
 
-#include "sqlrp.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-void
-sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
+#include "sqlrp.h"
+#include "utils.h"
+
+static void
+sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
+    const struct sockaddr *addr, unsigned flags)
 {
+	if (nread < 0) {
+		fprintf(stderr, "detect port read error\n");
+		/* Error or EOF */
+		if (buf->base) {
+			free(buf->base);
+		}
+
+		uv_close((uv_handle_t*) handle, NULL);
+		return;
+	}
+
+	if (nread == 0) {
+		fprintf(stderr, "nothing read\n");
+		/* Everything OK, but nothing read. */
+		free(buf->base);
+		uv_udp_recv_stop(handle);
+		return;
+	}
+
+	fprintf(stderr, "%d bytes read\n", (int)nread);
+	/* TODO: Handle */
+	dump_hex(buf->base, nread);
+	free(buf->base);
+	uv_udp_recv_stop(handle);
 }
 
+static void
+sqlrp_on_send(uv_udp_send_t *req, int status)
+{
+	int r;
+
+	if (status != 0) {
+		fprintf(stderr, "send failed\n");
+		return;
+	}
+
+	r = uv_udp_recv_start(req->handle, gen_on_alloc, sqlrp_on_read);
+	if (r != 0) {
+		fprintf(stderr, "couldn't recv handle\n");
+	}
+}
+
+int
+sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
+{
+	uv_udp_t *send_socket;
+	uv_udp_send_t *send_req;
+	struct sockaddr_in send_addr;
+	unsigned char msg[128];
+	uv_buf_t buffer;
+	int l;
+
+	/* Setup our sending UDP datagram */
+	send_socket = malloc(sizeof(uv_udp_t));
+
+	uv_udp_init(loop, send_socket);
+	fprintf(stderr, "Sending to %s:1434\n", conn->ip_addr);
+
+	memset(msg, 0, sizeof(msg));
+	msg[0] = 4;
+	l = snprintf((char *)msg + 1, sizeof(msg) - 1, "%s", conn->instance);
+
+	buffer.len = 1 + l;
+	buffer.base = (char *)msg;
+
+	send_req = malloc(sizeof(uv_udp_send_t));
+	send_req->data = conn;
+
+	uv_ip4_addr(conn->ip_addr, 1434, &send_addr);
+	uv_udp_send(send_req, send_socket, &buffer, 1,
+	    (const struct sockaddr *)&send_addr, sqlrp_on_send);
+
+	return 0;
+}

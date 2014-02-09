@@ -22,7 +22,7 @@
 #include <uv.h>
 #include "tds_uv.h"
 
-void sqlrp_detect_port(uv_loop_t *loop, struct connection *conn);
+int sqlrp_detect_port(uv_loop_t *loop, struct connection *conn);
 
 #endif /* __SLQRP_H__ */
 
