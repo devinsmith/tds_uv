@@ -3,6 +3,7 @@
 #include <string.h>
 #include <uv.h>
 
+#include "sqlrp.h"
 #include "tds_uv.h"
 #include "utils.h"
 

@@ -3,8 +3,8 @@
 .PHONY: all clean
 
 # Source files for the tdsuv test
-SRCS = tds_uv.c utils.c
-OBJS = tds_uv.o utils.o
+SRCS = sqlrp.c tds_uv.c utils.c
+OBJS = sqlrp.o tds_uv.o utils.o
 
 CC = gcc
 INTERNAL_CFLAGS = -Wall -O2 -I/usr/local/include -pthread -I.
