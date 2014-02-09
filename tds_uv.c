@@ -3,17 +3,10 @@
 #include <string.h>
 #include <uv.h>
 
+#include "tds_uv.h"
 #include "utils.h"
 
 uv_loop_t *loop;
-
-struct connection {
-	char ip_addr[16];
-	char *server;
-	char *port;
-	char *instance;
-};
-
 
 static void
 on_connect(uv_connect_t *req, int status)
@@ -58,7 +51,7 @@ detect_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 }
 
 void
-on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
+gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
 {
 	buf->base = malloc(suggested_size);
 	buf->len = suggested_size;
@@ -73,7 +66,7 @@ void on_send(uv_udp_send_t *req, int status)
 		return;
 	}
 
-	r = uv_udp_recv_start(req->handle, on_alloc, detect_on_read);
+	r = uv_udp_recv_start(req->handle, gen_on_alloc, detect_on_read);
 	if (r != 0) {
 		fprintf(stderr, "couldn't recv handle\n");
 	}
