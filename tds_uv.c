@@ -98,10 +98,10 @@ detect_port(struct connection *conn)
 
 	memset(msg, 0, sizeof(msg));
 	msg[0] = 4;
-	l = snprintf(msg + 1, sizeof(msg) - 1, "%s", conn->instance);
+	l = snprintf((char *)msg + 1, sizeof(msg) - 1, "%s", conn->instance);
 
 	buffer.len = 1 + l;
-	buffer.base = msg;
+	buffer.base = (char *)msg;
 
 	send_req = malloc(sizeof(uv_udp_send_t));
 	send_req->data = conn;
