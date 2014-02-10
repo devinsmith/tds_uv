@@ -9,6 +9,14 @@
 
 uv_loop_t *loop;
 
+/* The different stages of our TDS connection */
+#define TDS_DISCONNECTED 0
+#define TDS_CONNECTING 1
+#define TDS_CONNECTED 2
+#define TDS_LOGGING_IN 3
+#define TDS_LOGGED_IN 4
+#define TDS_READY 5
+
 static void
 on_connect(uv_connect_t *req, int status)
 {

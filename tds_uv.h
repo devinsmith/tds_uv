@@ -22,6 +22,7 @@ struct connection {
 	char *server;
 	char *port;
 	char *instance;
+	int stage;
 };
 
 /* A generic UV eventful allocation function */
