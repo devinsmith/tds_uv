@@ -24,6 +24,12 @@
 #include "sqlrp.h"
 #include "utils.h"
 
+/* SQL Server Resolution Protocol communicates over UDP port 1434 */
+#define SQLRP_PORT 1434
+
+/* Message types ([MC-SQLR].pdf section 2.2) */
+#define CLNT_UCAST_INST 0x04
+
 static void
 sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
     const struct sockaddr *addr, unsigned flags)
@@ -52,6 +58,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	dump_hex(buf->base, nread);
 	free(buf->base);
 	uv_udp_recv_stop(handle);
+	free(handle);
 }
 
 static void
@@ -68,6 +75,7 @@ sqlrp_on_send(uv_udp_send_t *req, int status)
 	if (r != 0) {
 		fprintf(stderr, "couldn't recv handle\n");
 	}
+	free(req);
 }
 
 int
@@ -84,11 +92,13 @@ sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
 	send_socket = malloc(sizeof(uv_udp_t));
 
 	uv_udp_init(loop, send_socket);
-	fprintf(stderr, "Sending to %s:1434\n", conn->ip_addr);
+	fprintf(stderr, "Sending to %s:%d\n", conn->ip_addr, SQLRP_PORT);
 
 	memset(msg, 0, sizeof(msg));
-	msg[0] = 4;
-	l = snprintf((char *)msg + 1, sizeof(msg) - 1, "%s", conn->instance);
+	msg[0] = CLNT_UCAST_INST;
+	/* The instance name must be no greater than 32 characters not including
+	 * the NULL terminator. */
+	l = snprintf((char *)msg + 1, 32, "%s", conn->instance);
 
 	buffer.len = 1 + l;
 	buffer.base = (char *)msg;
@@ -96,7 +106,7 @@ sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
 	send_req = malloc(sizeof(uv_udp_send_t));
 	send_req->data = conn;
 
-	uv_ip4_addr(conn->ip_addr, 1434, &send_addr);
+	uv_ip4_addr(conn->ip_addr, SQLRP_PORT, &send_addr);
 	uv_udp_send(send_req, send_socket, &buffer, 1,
 	    (const struct sockaddr *)&send_addr, sqlrp_on_send);
 
