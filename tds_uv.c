@@ -21,6 +21,7 @@ uv_loop_t *loop;
 static void
 on_connect(uv_connect_t *req, int status)
 {
+	struct connection *conn = req->data;
 	if (status == -1) {
 		fprintf(stderr, "connect failed error %s\n", uv_strerror(status));
 		free(req);
@@ -28,6 +29,8 @@ on_connect(uv_connect_t *req, int status)
 	}
 
 	fprintf(stderr, "Connected!\n");
+	conn->stage = TDS_CONNECTED;
+
 	free(req);
 }
 
@@ -48,7 +51,8 @@ tds_connect(struct connection *conn, const struct sockaddr *addr)
 	socket = malloc(sizeof(uv_tcp_t));
 
 	uv_tcp_init(loop, socket);
-	connect_req->data = socket;
+	conn->stage = TDS_CONNECTING;
+	connect_req->data = conn;
 	uv_tcp_connect(connect_req, socket, addr, on_connect);
 }
 
