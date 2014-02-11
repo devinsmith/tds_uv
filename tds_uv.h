@@ -20,13 +20,15 @@
 struct connection {
 	char ip_addr[16];
 	char *server;
-	char *port;
+	unsigned short port;
 	char *instance;
 	int stage;
 };
 
 /* A generic UV eventful allocation function */
 void gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf);
+
+void tds_connect(struct connection *conn, const struct sockaddr *addr);
 
 #endif /* __TDS_UV_H__ */
 

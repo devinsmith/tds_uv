@@ -11,11 +11,12 @@ uv_loop_t *loop;
 
 /* The different stages of our TDS connection */
 #define TDS_DISCONNECTED 0
-#define TDS_CONNECTING 1
-#define TDS_CONNECTED 2
-#define TDS_LOGGING_IN 3
-#define TDS_LOGGED_IN 4
-#define TDS_READY 5
+#define TDS_RESOLVING    1
+#define TDS_CONNECTING   2
+#define TDS_CONNECTED    3
+#define TDS_LOGGING_IN   4
+#define TDS_LOGGED_IN    5
+#define TDS_READY        6
 
 static void
 on_connect(uv_connect_t *req, int status)
@@ -36,13 +37,23 @@ gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
 	buf->len = suggested_size;
 }
 
+void
+tds_connect(struct connection *conn, const struct sockaddr *addr)
+{
+	uv_connect_t *connect_req;
+	uv_tcp_t *socket;
 
+	connect_req = malloc(sizeof(uv_connect_t));
+	socket = malloc(sizeof(uv_tcp_t));
+
+	uv_tcp_init(loop, socket);
+	connect_req->data = socket;
+	uv_tcp_connect(connect_req, socket, addr, on_connect);
+}
 
 static void
 on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 {
-	uv_connect_t *connect_req;
-	uv_tcp_t *socket;
 	struct connection *conn = resolver->data;
 
 	if (status < 0) {
@@ -57,14 +68,8 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 
 	/* At this point we should have an IP address for our hostname, but
 	 * we may not have a port. */
-	if (conn->port) {
-		connect_req = malloc(sizeof(uv_connect_t));
-		socket = malloc(sizeof(uv_tcp_t));
-		uv_tcp_init(loop, socket);
-
-		connect_req->data = (void*) socket;
-		uv_tcp_connect(connect_req, socket, res->ai_addr,
-		    on_connect);
+	if (conn->port > 0) {
+		tds_connect(conn, (struct sockaddr *)res->ai_addr);
 	} else {
 		fprintf(stderr, "no port! Need to detect.\n");
 		sqlrp_detect_port(loop, conn);
@@ -79,11 +84,18 @@ resolve_connect(struct connection *conn)
 {
 	int r;
 	uv_getaddrinfo_t *resolver;
+	char port[sizeof("65535")];
+	char *pport = NULL;
 
 	/* Allocate a new resolver, will be freed in "on_resolved" */
 	resolver = malloc(sizeof(uv_getaddrinfo_t));
+	conn->stage = TDS_RESOLVING;
 	resolver->data = conn;
-	r = uv_getaddrinfo(loop, resolver, on_resolved, conn->server, conn->port,
+	if (conn->port > 0) {
+		snprintf(port, sizeof(port), "%d", conn->port);
+		pport = port;
+	}
+	r = uv_getaddrinfo(loop, resolver, on_resolved, conn->server, pport,
 	    NULL);
 
 	if (r) {
@@ -126,7 +138,7 @@ main(int argc, char *argv[])
 			if (!argv[1]) {
 				args_required(p);
 			}
-			conn.port = *++argv, --argc;
+			conn.port = atoi(*++argv), --argc;
 		}
 	}
 
@@ -143,3 +155,4 @@ main(int argc, char *argv[])
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }
+
