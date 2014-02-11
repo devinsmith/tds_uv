@@ -27,6 +27,7 @@ on_connect(uv_connect_t *req, int status)
 		return;
 	}
 
+	fprintf(stderr, "Connected!\n");
 	free(req);
 }
 
