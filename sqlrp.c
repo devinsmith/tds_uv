@@ -122,6 +122,7 @@ static void
 sqlrp_on_send(uv_udp_send_t *req, int status)
 {
 	int r;
+	uv_buf_t *reqbuf = (uv_buf_t *)(req + 1);
 
 	if (status != 0) {
 		fprintf(stderr, "send failed\n");
@@ -132,6 +133,8 @@ sqlrp_on_send(uv_udp_send_t *req, int status)
 	if (r != 0) {
 		fprintf(stderr, "couldn't recv handle\n");
 	}
+
+	free(reqbuf->base);
 	free(req);
 }
 
@@ -141,8 +144,8 @@ sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
 	uv_udp_t *send_socket;
 	uv_udp_send_t *send_req;
 	struct sockaddr_in send_addr;
-	unsigned char msg[128];
-	uv_buf_t buffer;
+	char *msg;
+	uv_buf_t *buffer;
 	int l;
 
 	/* Setup our sending UDP datagram */
@@ -152,19 +155,20 @@ sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
 	uv_udp_init(loop, send_socket);
 	fprintf(stderr, "Sending to %s:%d\n", conn->ip_addr, SQLRP_PORT);
 
-	memset(msg, 0, sizeof(msg));
+	msg = calloc(128, 1);
 	msg[0] = CLNT_UCAST_INST;
 	/* The instance name must be no greater than 32 characters not including
 	 * the NULL terminator. */
-	l = snprintf((char *)msg + 1, 32, "%s", conn->instance);
+	l = snprintf(msg + 1, 32, "%s", conn->instance);
 
-	buffer.len = 1 + l;
-	buffer.base = (char *)msg;
-
-	send_req = malloc(sizeof(uv_udp_send_t));
+	/* Piggy back our buffer onto send_req to save a malloc */
+	send_req = malloc(sizeof(uv_udp_send_t) + sizeof(uv_buf_t));
+	buffer = (uv_buf_t *)(send_req + 1);
+	buffer->len = 1 + l;
+	buffer->base = msg;
 
 	uv_ip4_addr(conn->ip_addr, SQLRP_PORT, &send_addr);
-	uv_udp_send(send_req, send_socket, &buffer, 1,
+	uv_udp_send(send_req, send_socket, buffer, 1,
 	    (const struct sockaddr *)&send_addr, sqlrp_on_send);
 
 	return 0;
