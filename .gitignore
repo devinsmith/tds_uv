@@ -2,6 +2,12 @@
 *.o
 *.ko
 
+# Depends
+*.d
+
+# vim
+*.swp
+
 # Libraries
 *.lib
 *.a
