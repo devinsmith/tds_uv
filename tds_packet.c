@@ -36,7 +36,6 @@
  */
 
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
