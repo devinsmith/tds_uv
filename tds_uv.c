@@ -4,6 +4,7 @@
 #include <uv.h>
 
 #include "sqlrp.h"
+#include "tds_packet.h"
 #include "tds_uv.h"
 #include "utils.h"
 
@@ -19,9 +20,70 @@ uv_loop_t *loop;
 #define TDS_READY        6
 
 static void
+tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
+{
+	if (nread < 0) {
+		fprintf(stderr, "tds_on_read port read error\n");
+		/* Error or EOF */
+		if (buf->base) {
+			free(buf->base);
+		}
+
+		uv_close((uv_handle_t*) tcp, NULL);
+		return;
+	}
+
+	if (nread == 0) {
+		fprintf(stderr, "tds_on_read nothing read\n");
+		/* Everything OK, but nothing read. */
+		free(buf->base);
+		return;
+	}
+
+	fprintf(stderr, "%d bytes read\n", (int)nread);
+	dump_hex(buf->base, nread);
+	free(buf->base);
+}
+
+static void
+after_write(uv_write_t *req, int status)
+{
+	uv_buf_t *resbuf = (uv_buf_t *)(req + 1);
+
+	free(resbuf->base);
+	free(req);
+}
+
+static void
+send_prelogin(uv_stream_t *stream, struct connection *conn)
+{
+	struct pkt *p;
+	uv_write_t *write_req = malloc(sizeof(write_req) + sizeof(uv_buf_t));
+	uv_buf_t *resbuf = (uv_buf_t *)(write_req + 1);
+
+	/* Packet header is always 8 bytes */
+	p = pkt_raw_init(128, FIXED_PACKET);
+	pkt_add8(p, 0x12); /* Prelogin */
+	pkt_add8(p, 0x00); /* "Normal" status message */
+	pkt_add16(p, 0x9); /* length in big endian */
+	pkt_add16(p, 0); /* SPID */
+	pkt_add8(p, 1); /* Packet Id */
+	pkt_add8(p, 0); /* Window Id (always 0) */
+
+	pkt_add8(p, 0xff);
+
+	resbuf->base = p->data;
+	resbuf->len = p->len;
+
+	uv_write(write_req, stream, resbuf, 1, after_write);
+}
+
+static void
 on_connect(uv_connect_t *req, int status)
 {
 	struct connection *conn = req->data;
+	uv_stream_t *stream = req->handle;
+
 	if (status == -1) {
 		fprintf(stderr, "connect failed error %s\n", uv_strerror(status));
 		free(req);
@@ -30,6 +92,8 @@ on_connect(uv_connect_t *req, int status)
 
 	fprintf(stderr, "Connected!\n");
 	conn->stage = TDS_CONNECTED;
+	send_prelogin(stream, conn);
+	uv_read_start(stream, gen_on_alloc, tds_on_read);
 
 	free(req);
 }
