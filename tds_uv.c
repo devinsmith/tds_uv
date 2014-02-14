@@ -60,20 +60,95 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	struct pkt *p;
 	uv_write_t *write_req = malloc(sizeof(write_req) + sizeof(uv_buf_t));
 	uv_buf_t *resbuf = (uv_buf_t *)(write_req + 1);
+	size_t token_offset;
+	size_t data_offset;
+	unsigned char *size_ptr;
 
 	/* Packet header is always 8 bytes */
 	p = pkt_raw_init(128, FIXED_PACKET);
 	pkt_add8(p, 0x12); /* Prelogin */
-	pkt_add8(p, 0x00); /* "Normal" status message */
-	pkt_add16(p, 0x9); /* length in big endian */
+	pkt_add8(p, 0x01); /* "Normal" status message */
+	pkt_add16(p, 0xBAAD); /* length in big endian (filled later) */
 	pkt_add16(p, 0); /* SPID */
-	pkt_add8(p, 1); /* Packet Id */
+	pkt_add8(p, 0); /* Packet Id */
 	pkt_add8(p, 0); /* Window Id (always 0) */
+	/* Here we end the standard TDS packet header */
 
-	pkt_add8(p, 0xff);
+	/* keep a pointer to the start of tokens */
+	token_offset = p->len;
 
+	/* Each token has the following components:
+	 * TokenType - 1 byte
+	 * TokenDataOffset - 2 bytes (big endian)
+	 *  -- TokenDataOffset is calculated dynamically below.
+	 * TokenDataLength - 2 bytes (big endian)
+	 */
+
+	pkt_add8(p, 0); /* Version */
+	pkt_add16(p, 0); /* Start position (filled in below)*/
+	pkt_add16(p, 6); /* Length */
+
+	pkt_add8(p, 1); /* Encryption */
+	pkt_add16(p, 0);
+	pkt_add16(p, 1); /* 1 byte */
+
+	pkt_add8(p, 2); /* Instance option */
+	pkt_add16(p, 0); /* starting offset */
+	pkt_add16(p, strlen(conn->instance) + 1);
+
+	pkt_add8(p, 3); /* thread id */
+	pkt_add16(p, 0);
+	pkt_add16(p, 4); /* pid is 4 bytes */
+
+	pkt_add8(p, 0xff); /* End of tokens */
+	data_offset = p->len - 8; /* 8 is size of header */
+
+	size_ptr = p->data + token_offset;
+	while (*size_ptr != 0xff) {
+		unsigned short token_len;
+
+		/* Skip token type byte */
+		size_ptr++;
+
+		*size_ptr++ = (data_offset & 0xff00) >> 8;
+		*size_ptr++ = (data_offset & 0xff);
+
+		token_len = *size_ptr++ << 8;
+		token_len += *size_ptr++;
+
+		data_offset += token_len;
+	}
+
+	/* TOKEN 0 */
+	/* UL_VERSION:
+	 * Major version: 1 byte
+	 * Minor version: 1 byte
+	 * Build Number: 2 bytes */
+	pkt_add8(p, 9);
+	pkt_add8(p, 0);
+	pkt_add8(p, 0);
+	pkt_add8(p, 0);
+	/* US_SUBBUILD */
+	pkt_add16(p, 0);
+
+	/* TOKEN 1 (ENCRYPTION) */
+	pkt_add8(p, 2); /* Encryption not supported */
+
+	/* TOKEN 2 (INSTOPT) */
+	pkt_addstring(p, conn->instance);
+	pkt_add8(p, 0); /* terminating byte */
+
+	/* TOKEN 3 (THREADID) */
+	pkt_add32(p, 0); /* getpid? */
+
+	/* Write header */
+	p->data[2] = (p->len & 0xff00) >> 8;
+	p->data[3] = (p->len & 0xff);
+
+	fprintf(stderr, "pkt len: %d\n", (int)p->len);
 	resbuf->base = p->data;
 	resbuf->len = p->len;
+	dump_hex(resbuf->base, resbuf->len);
 
 	uv_write(write_req, stream, resbuf, 1, after_write);
 }
