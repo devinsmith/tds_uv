@@ -58,7 +58,7 @@ static void
 send_prelogin(uv_stream_t *stream, struct connection *conn)
 {
 	struct pkt *p;
-	uv_write_t *write_req = malloc(sizeof(write_req) + sizeof(uv_buf_t));
+	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
 	uv_buf_t *resbuf = (uv_buf_t *)(write_req + 1);
 	size_t token_offset;
 	size_t data_offset;
