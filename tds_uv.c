@@ -4,7 +4,7 @@
 #include <uv.h>
 
 #include "sqlrp.h"
-#include "tds_packet.h"
+#include "tds_buf.h"
 #include "tds_uv.h"
 #include "utils.h"
 

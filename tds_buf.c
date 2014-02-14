@@ -40,7 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tds_packet.h"
+#include "tds_buf.h"
 
 #define MAX_SIZE	16384
 
