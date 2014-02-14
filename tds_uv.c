@@ -104,7 +104,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 
 	/* Loop through each token and set the TokenDataOffset
 	 * correctly. The token terminator is 0xff. */
-	size_ptr = pkt->base + token_offset;
+	size_ptr = (unsigned char *)pkt->base + token_offset;
 	while (*size_ptr != 0xff) {
 		unsigned short token_len;
 
