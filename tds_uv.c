@@ -103,16 +103,21 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	pkt_add8(p, 0xff); /* End of tokens */
 	data_offset = p->len - 8; /* 8 is size of header */
 
+	/* Loop through each token and set the TokenDataOffset
+	 * correctly. The token terminator is 0xff. */
 	size_ptr = p->data + token_offset;
 	while (*size_ptr != 0xff) {
 		unsigned short token_len;
 
-		/* Skip token type byte */
+		/* Skip the TokenType byte */
 		size_ptr++;
 
+		/* Overwrite the TokenDataOffset */
 		*size_ptr++ = (data_offset & 0xff00) >> 8;
 		*size_ptr++ = (data_offset & 0xff);
 
+		/* Read the TokenDataLength and update data offset
+		 * as we loop through the tokens */
 		token_len = *size_ptr++ << 8;
 		token_len += *size_ptr++;
 
@@ -126,8 +131,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	 * Build Number: 2 bytes */
 	pkt_add8(p, 9);
 	pkt_add8(p, 0);
-	pkt_add8(p, 0);
-	pkt_add8(p, 0);
+	pkt_add16(p, 0);
 	/* US_SUBBUILD */
 	pkt_add16(p, 0);
 
