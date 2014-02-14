@@ -44,96 +44,84 @@
 
 #define MAX_SIZE	16384
 
-struct pkt *
-pkt_raw_init(size_t len, int type)
+void
+buf_raw_init(uv_buf_t *buf, size_t len)
 {
-	struct pkt *p = NULL;
+	if (buf == NULL)
+		return;
 
-	p = malloc((size_t) sizeof(struct pkt));
-	if (p == NULL) return NULL;
-
-	if (type == VARIABLE_PACKET) p->data = malloc(MAX_SIZE);
-	else p->data = malloc(len);
-
-	if (p->data == NULL) {
-		free(p);
-		return NULL;
+	buf->base = malloc(len);
+	if (buf->base == NULL) {
+		return;
 	}
 
-	p->len = 0;
-	p->offset = 0;
-
-	return p;
-
+	buf->len = 0;
 }
 
-void pkt_addraw(struct pkt *p, const unsigned char *bytes, size_t len)
+void
+buf_addraw(uv_buf_t *p, const unsigned char *bytes, size_t len)
 {
-	memcpy(p->data + p->offset, bytes, len);
-	p->offset += len;
+	memcpy(p->base + p->len, bytes, len);
 	p->len += len;
 }
 
-void pkt_addzero(struct pkt *p, int num_zeros)
+void
+buf_addzero(uv_buf_t *p, int num_zeros)
 {
-	memset(p->data + p->offset, 0, num_zeros);
-	p->offset += num_zeros;
+	memset(p->base + p->len, 0, num_zeros);
 	p->len += num_zeros;
 }
 
-void pkt_addstring(struct pkt *p, const char *bytes) {
+void
+buf_addstring(uv_buf_t *p, const char *bytes)
+{
 	uint32_t len;
 
 	len = strlen(bytes);
-	pkt_addraw(p, (unsigned char *) bytes, len);
+	buf_addraw(p, (unsigned char *) bytes, len);
 }
 
-void pkt_add8(struct pkt *p, uint8_t val)
+void
+buf_add8(uv_buf_t *p, uint8_t val)
 {
-	p->data[p->offset] = val;
-	p->offset++;
-	p->len++;
+	p->base[p->len++] = val;
 }
 
-void pkt_add16_le(struct pkt *p, uint16_t val)
+void
+buf_add16_le(uv_buf_t *p, uint16_t val)
 {
-	p->data[p->offset++] = (val & 0xff);
-	p->data[p->offset++] = (val & 0xff00) >> 8;
-	p->len += 2;
+	p->base[p->len++] = (val & 0xff);
+	p->base[p->len++] = (val & 0xff00) >> 8;
 }
 
-void pkt_add16(struct pkt *p, uint16_t val)
+void
+buf_add16(uv_buf_t *p, uint16_t val)
 {
-	p->data[p->offset++] = (val & 0xff00) >> 8;
-	p->data[p->offset++] = (val & 0xff);
-	p->len += 2;
+	p->base[p->len++] = (val & 0xff00) >> 8;
+	p->base[p->len++] = (val & 0xff);
 }
 
-void pkt_add32_le(struct pkt *p, uint32_t val)
+void
+buf_add32_le(uv_buf_t *p, uint32_t val)
 {
-	p->data[p->offset++] = (val & 0xff);
-	p->data[p->offset++] = (val & 0xff00) >> 8;
-	p->data[p->offset++] = (val & 0xff0000) >> 16;
-	p->data[p->offset++] = (val & 0xff000000) >> 24;
-	p->len += 4;
+	p->base[p->len++] = (val & 0xff);
+	p->base[p->len++] = (val & 0xff00) >> 8;
+	p->base[p->len++] = (val & 0xff0000) >> 16;
+	p->base[p->len++] = (val & 0xff000000) >> 24;
 }
 
-void pkt_add32(struct pkt *p, uint32_t val)
+void
+buf_add32(uv_buf_t *p, uint32_t val)
 {
-	p->data[p->offset++] = (val & 0xff000000) >> 24;
-	p->data[p->offset++] = (val & 0xff0000) >> 16;
-	p->data[p->offset++] = (val & 0xff00) >> 8;
-	p->data[p->offset++] = (val & 0xff);
-	p->len += 4;
+	p->base[p->len++] = (val & 0xff000000) >> 24;
+	p->base[p->len++] = (val & 0xff0000) >> 16;
+	p->base[p->len++] = (val & 0xff00) >> 8;
+	p->base[p->len++] = (val & 0xff);
 }
 
-void pkt_free(struct pkt * p)
+void
+buf_free(uv_buf_t *p)
 {
-	if (p == NULL) return;
-
-	if (p->data != NULL) {
-		free(p->data);
-	}
-	free(p);
+	free(p->base);
 }
 

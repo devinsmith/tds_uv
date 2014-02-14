@@ -57,25 +57,24 @@ after_write(uv_write_t *req, int status)
 static void
 send_prelogin(uv_stream_t *stream, struct connection *conn)
 {
-	struct pkt *p;
 	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
-	uv_buf_t *resbuf = (uv_buf_t *)(write_req + 1);
+	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
 	size_t token_offset;
 	size_t data_offset;
 	unsigned char *size_ptr;
 
 	/* Packet header is always 8 bytes */
-	p = pkt_raw_init(128, FIXED_PACKET);
-	pkt_add8(p, 0x12); /* Prelogin */
-	pkt_add8(p, 0x01); /* "Normal" status message */
-	pkt_add16(p, 0xBAAD); /* length in big endian (filled later) */
-	pkt_add16(p, 0); /* SPID */
-	pkt_add8(p, 0); /* Packet Id */
-	pkt_add8(p, 0); /* Window Id (always 0) */
+	buf_raw_init(pkt, 128);
+	buf_add8(pkt, 0x12); /* Prelogin */
+	buf_add8(pkt, 0x01); /* "Normal" status message */
+	buf_add16(pkt, 0xBAAD); /* length in big endian (filled later) */
+	buf_add16(pkt, 0); /* SPID */
+	buf_add8(pkt, 0); /* Packet Id */
+	buf_add8(pkt, 0); /* Window Id (always 0) */
 	/* Here we end the standard TDS packet header */
 
 	/* keep a pointer to the start of tokens */
-	token_offset = p->len;
+	token_offset = pkt->len;
 
 	/* Each token has the following components:
 	 * TokenType - 1 byte
@@ -84,28 +83,28 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	 * TokenDataLength - 2 bytes (big endian)
 	 */
 
-	pkt_add8(p, 0); /* Version */
-	pkt_add16(p, 0); /* Start position (filled in below)*/
-	pkt_add16(p, 6); /* Length */
+	buf_add8(pkt, 0); /* Version */
+	buf_add16(pkt, 0); /* Start position (filled in below)*/
+	buf_add16(pkt, 6); /* Length */
 
-	pkt_add8(p, 1); /* Encryption */
-	pkt_add16(p, 0);
-	pkt_add16(p, 1); /* 1 byte */
+	buf_add8(pkt, 1); /* Encryption */
+	buf_add16(pkt, 0);
+	buf_add16(pkt, 1); /* 1 byte */
 
-	pkt_add8(p, 2); /* Instance option */
-	pkt_add16(p, 0); /* starting offset */
-	pkt_add16(p, strlen(conn->instance) + 1);
+	buf_add8(pkt, 2); /* Instance option */
+	buf_add16(pkt, 0); /* starting offset */
+	buf_add16(pkt, strlen(conn->instance) + 1);
 
-	pkt_add8(p, 3); /* thread id */
-	pkt_add16(p, 0);
-	pkt_add16(p, 4); /* pid is 4 bytes */
+	buf_add8(pkt, 3); /* thread id */
+	buf_add16(pkt, 0);
+	buf_add16(pkt, 4); /* pid is 4 bytes */
 
-	pkt_add8(p, 0xff); /* End of tokens */
-	data_offset = p->len - 8; /* 8 is size of header */
+	buf_add8(pkt, 0xff); /* End of tokens */
+	data_offset = pkt->len - 8; /* 8 is size of header */
 
 	/* Loop through each token and set the TokenDataOffset
 	 * correctly. The token terminator is 0xff. */
-	size_ptr = p->data + token_offset;
+	size_ptr = pkt->base + token_offset;
 	while (*size_ptr != 0xff) {
 		unsigned short token_len;
 
@@ -129,32 +128,30 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	 * Major version: 1 byte
 	 * Minor version: 1 byte
 	 * Build Number: 2 bytes */
-	pkt_add8(p, 9);
-	pkt_add8(p, 0);
-	pkt_add16(p, 0);
+	buf_add8(pkt, 9);
+	buf_add8(pkt, 0);
+	buf_add16(pkt, 0);
 	/* US_SUBBUILD */
-	pkt_add16(p, 0);
+	buf_add16(pkt, 0);
 
 	/* TOKEN 1 (ENCRYPTION) */
-	pkt_add8(p, 2); /* Encryption not supported */
+	buf_add8(pkt, 2); /* Encryption not supported */
 
 	/* TOKEN 2 (INSTOPT) */
-	pkt_addstring(p, conn->instance);
-	pkt_add8(p, 0); /* terminating byte */
+	buf_addstring(pkt, conn->instance);
+	buf_add8(pkt, 0); /* terminating byte */
 
 	/* TOKEN 3 (THREADID) */
-	pkt_add32(p, 0); /* getpid? */
+	buf_add32(pkt, 0); /* getpid? */
 
 	/* Write header */
-	p->data[2] = (p->len & 0xff00) >> 8;
-	p->data[3] = (p->len & 0xff);
+	pkt->base[2] = (pkt->len & 0xff00) >> 8;
+	pkt->base[3] = (pkt->len & 0xff);
 
-	fprintf(stderr, "pkt len: %d\n", (int)p->len);
-	resbuf->base = p->data;
-	resbuf->len = p->len;
-	dump_hex(resbuf->base, resbuf->len);
+	fprintf(stderr, "pkt len: %d\n", (int)pkt->len);
+	dump_hex(pkt->base, pkt->len);
 
-	uv_write(write_req, stream, resbuf, 1, after_write);
+	uv_write(write_req, stream, pkt, 1, after_write);
 }
 
 static void

@@ -35,32 +35,24 @@
  * implementation.
  */
 
-#ifndef __TDS_PACKET_H__
-#define __TDS_PACKET_H__
+#ifndef __TDS_BUF_H_
+#define __TDS_BUF_H__
 
 #include <sys/types.h>
 #include <stdint.h>
-
-#define VARIABLE_PACKET		1
-#define FIXED_PACKET		2
-
-struct pkt {
-	unsigned char *data;
-	size_t offset;
-	size_t len;
-};
+#include <uv.h>
 
 /* packet creation functions */
-struct pkt * pkt_raw_init(size_t len, int type);
-void pkt_addraw(struct pkt *p, const unsigned char *bytes, size_t len);
-void pkt_addzero(struct pkt *p, int num_zeros);
-void pkt_add8(struct pkt *p, uint8_t val);
-void pkt_add16(struct pkt *p, uint16_t val);
-void pkt_add16_le(struct pkt *p, uint16_t val);
-void pkt_add32(struct pkt *p, uint32_t val);
-void pkt_add32_le(struct pkt *p, uint32_t val);
-void pkt_addstring(struct pkt *p, const char *bytes);
-void pkt_free(struct pkt * p);
+void buf_raw_init(uv_buf_t *buf, size_t len);
+void buf_addraw(uv_buf_t *p, const unsigned char *bytes, size_t len);
+void buf_addzero(uv_buf_t *p, int num_zeros);
+void buf_add8(uv_buf_t *p, uint8_t val);
+void buf_add16(uv_buf_t *p, uint16_t val);
+void buf_add16_le(uv_buf_t *p, uint16_t val);
+void buf_add32(uv_buf_t *p, uint32_t val);
+void buf_add32_le(uv_buf_t *p, uint32_t val);
+void buf_addstring(uv_buf_t *p, const char *bytes);
+void buf_free(uv_buf_t * p);
 
-#endif /* __TDS_PACKET_H__ */
+#endif /* __TDS_BUF_H__ */
 
