@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "tds_log.h"
 #include "utils.h"
 
 void
@@ -52,12 +53,12 @@ dump_hex(void *vp, size_t len)
 
 		linebuf_dirty = 1;
 		if (!((i + 1) % 16)) {
-			fprintf(stdout, "%s\n", linebuf);
+			tds_debug(0, "%s\n", linebuf);
 			memset(linebuf, ' ', sizeof(linebuf));
 			linebuf[70] = '\0';
 			linebuf_dirty = 0;
 		}
 	}
 	if (linebuf_dirty == 1)
-		fprintf(stdout, "%s\n", linebuf);
+		tds_debug(0, "%s\n", linebuf);
 }

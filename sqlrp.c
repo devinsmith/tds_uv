@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "sqlrp.h"
+#include "tds_log.h"
 #include "utils.h"
 
 /* SQL Server Resolution Protocol communicates over UDP port 1434 */
@@ -45,7 +46,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	long l = 0;
 
 	if (nread < 0) {
-		fprintf(stderr, "detect port read error\n");
+		tds_debug(0, "detect port read error\n");
 		/* Error or EOF */
 		if (buf->base) {
 			free(buf->base);
@@ -56,22 +57,22 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	}
 
 	if (nread == 0) {
-		fprintf(stderr, "nothing read\n");
+		tds_debug(0, "nothing read\n");
 		/* Everything OK, but nothing read. */
 		free(buf->base);
 		uv_udp_recv_stop(handle);
 		return;
 	}
 
-	fprintf(stderr, "%d bytes read\n", (int)nread);
+	tds_debug(0, "%d bytes read\n", (int)nread);
 	buf->base[nread - 1] = '\0';
 	dump_hex(buf->base, nread);
 	/* TODO: Handle */
 	if (buf->base[0] != 5) {
-		fprintf(stderr, "invalid packet received\n");
+		tds_debug(0, "invalid packet received\n");
 		goto done;
 	}
-	fprintf(stderr, "%s\n", conn->instance);
+	tds_debug(0, "%s\n", conn->instance);
 
 	p = buf->base + 3; /* Skip packet type + length */
 	while (*p) {
@@ -107,7 +108,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	if (instance_found && port_found) {
 		struct sockaddr_in addr;
 		conn->port = l;
-		fprintf(stderr, "Port = %d\n", conn->port);
+		tds_debug(0, "Port = %d\n", conn->port);
 		uv_ip4_addr(conn->ip_addr, conn->port, &addr);
 		tds_connect(conn, (struct sockaddr *)&addr);
 	}
@@ -125,13 +126,13 @@ sqlrp_on_send(uv_udp_send_t *req, int status)
 	uv_buf_t *reqbuf = (uv_buf_t *)(req + 1);
 
 	if (status != 0) {
-		fprintf(stderr, "send failed\n");
+		tds_debug(0, "send failed\n");
 		return;
 	}
 
 	r = uv_udp_recv_start(req->handle, gen_on_alloc, sqlrp_on_read);
 	if (r != 0) {
-		fprintf(stderr, "couldn't recv handle\n");
+		tds_debug(0, "couldn't recv handle\n");
 	}
 
 	free(reqbuf->base);
@@ -153,7 +154,7 @@ sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
 	send_socket->data = conn;
 
 	uv_udp_init(loop, send_socket);
-	fprintf(stderr, "Sending to %s:%d\n", conn->ip_addr, SQLRP_PORT);
+	tds_debug(0, "Sending to %s:%d\n", conn->ip_addr, SQLRP_PORT);
 
 	msg = calloc(128, 1);
 	msg[0] = CLNT_UCAST_INST;

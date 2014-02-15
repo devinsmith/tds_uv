@@ -5,6 +5,7 @@
 
 #include "sqlrp.h"
 #include "tds_buf.h"
+#include "tds_log.h"
 #include "tds_uv.h"
 #include "utils.h"
 
@@ -23,7 +24,7 @@ static void
 tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 {
 	if (nread < 0) {
-		fprintf(stderr, "tds_on_read port read error\n");
+		tds_debug(0, "tds_on_read port read error\n");
 		/* Error or EOF */
 		if (buf->base) {
 			free(buf->base);
@@ -34,13 +35,13 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	}
 
 	if (nread == 0) {
-		fprintf(stderr, "tds_on_read nothing read\n");
+		tds_debug(0, "tds_on_read nothing read\n");
 		/* Everything OK, but nothing read. */
 		free(buf->base);
 		return;
 	}
 
-	fprintf(stderr, "%d bytes read\n", (int)nread);
+	tds_debug(0, "%d bytes read\n", (int)nread);
 	dump_hex(buf->base, nread);
 	free(buf->base);
 }
@@ -148,7 +149,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	pkt->base[2] = (pkt->len & 0xff00) >> 8;
 	pkt->base[3] = (pkt->len & 0xff);
 
-	fprintf(stderr, "pkt len: %d\n", (int)pkt->len);
+	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
 	dump_hex(pkt->base, pkt->len);
 
 	uv_write(write_req, stream, pkt, 1, after_write);
@@ -161,12 +162,12 @@ on_connect(uv_connect_t *req, int status)
 	uv_stream_t *stream = req->handle;
 
 	if (status == -1) {
-		fprintf(stderr, "connect failed error %s\n", uv_strerror(status));
+		tds_debug(0, "connect failed error %s\n", uv_strerror(status));
 		free(req);
 		return;
 	}
 
-	fprintf(stderr, "Connected!\n");
+	tds_debug(0, "Connected!\n");
 	conn->stage = TDS_CONNECTED;
 	send_prelogin(stream, conn);
 	uv_read_start(stream, gen_on_alloc, tds_on_read);
@@ -202,21 +203,21 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	struct connection *conn = resolver->data;
 
 	if (status < 0) {
-		fprintf(stderr, "Failed to resolve name (%d): %s\n", status,
+		tds_debug(0, "Failed to resolve name (%d): %s\n", status,
 		    uv_strerror(status));
 		return;
 	}
 
 	uv_ip4_name((struct sockaddr_in *)res->ai_addr, conn->ip_addr,
 	    sizeof(conn->ip_addr));
-	fprintf(stderr, "%s\n", conn->ip_addr);
+	tds_debug(0, "%s\n", conn->ip_addr);
 
 	/* At this point we should have an IP address for our hostname, but
 	 * we may not have a port. */
 	if (conn->port > 0) {
 		tds_connect(conn, (struct sockaddr *)res->ai_addr);
 	} else {
-		fprintf(stderr, "no port! Need to detect.\n");
+		tds_debug(0, "no port! Need to detect.\n");
 		sqlrp_detect_port(loop, conn);
 	}
 
@@ -245,7 +246,7 @@ resolve_connect(struct connection *conn)
 
 	if (r) {
 		free(resolver);
-		fprintf(stderr, "getaddrinfo call error %s\n", uv_strerror(r));
+		tds_debug(0, "getaddrinfo call error %s\n", uv_strerror(r));
 		return 1;
 	}
 
@@ -291,6 +292,9 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Please specify a hostname\n");
 		return 1;
 	}
+
+	tds_debug_init();
+	tds_debug_set_log_level(0);
 
 	loop = uv_default_loop();
 
