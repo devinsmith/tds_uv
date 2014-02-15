@@ -18,11 +18,19 @@ uv_loop_t *loop;
 #define TDS_CONNECTED    3
 #define TDS_LOGGING_IN   4
 #define TDS_LOGGED_IN    5
-#define TDS_READY        6
+#define TDS_IDLE         6
+
+static void send_login(uv_stream_t *tcp, struct connection *conn);
+
+static void
+send_login(uv_stream_t *tcp, struct connection *conn)
+{
+}
 
 static void
 tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 {
+	struct connection *conn = tcp->data;
 	if (nread < 0) {
 		tds_debug(0, "tds_on_read port read error\n");
 		/* Error or EOF */
@@ -42,7 +50,16 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	}
 
 	tds_debug(0, "%d bytes read\n", (int)nread);
-	dump_hex(buf->base, nread);
+	tds_debug(0, "Stage: %d\n", conn->stage);
+	switch (conn->stage) {
+	case TDS_CONNECTED:
+		/* XXX: Process prelogin packet */
+		send_login(tcp, conn);
+		break;
+	default:
+		dump_hex(buf->base, nread);
+		break;
+	}
 	free(buf->base);
 }
 
@@ -170,6 +187,7 @@ on_connect(uv_connect_t *req, int status)
 	tds_debug(0, "Connected!\n");
 	conn->stage = TDS_CONNECTED;
 	send_prelogin(stream, conn);
+	stream->data = conn;
 	uv_read_start(stream, gen_on_alloc, tds_on_read);
 
 	free(req);
