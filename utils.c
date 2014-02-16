@@ -22,6 +22,20 @@
 #include "tds_log.h"
 #include "utils.h"
 
+unsigned char *
+str_to_ucs2(const char *s, unsigned char *d, size_t len)
+{
+	size_t p;
+
+	for (p = 0; *s && p < len - 1; ++s) {
+		if (p < len - 2) {
+			d[p++] = *s;
+			d[p++] = '\0';
+		}
+	}
+	return d;
+}
+
 void
 dump_hex(void *vp, size_t len)
 {
