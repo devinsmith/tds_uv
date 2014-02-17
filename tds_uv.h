@@ -22,6 +22,8 @@ struct connection {
 	char *server;
 	unsigned short port;
 	char *instance;
+	char *user;
+	char *password;
 	int stage;
 };
 

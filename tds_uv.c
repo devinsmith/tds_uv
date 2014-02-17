@@ -282,33 +282,57 @@ int
 main(int argc, char *argv[])
 {
 	struct connection conn;
+	char *p;
 
 	memset(&conn, 0, sizeof(struct connection));
 	/* Parse arguments */
 	while (--argc) {
-		char *p = *++argv;
+		p = *++argv;
 
 		if (!strcmp(p, "-s")) {
 			if (!argv[1]) {
 				args_required(p);
 			}
 			conn.server = *++argv, --argc;
-		} else if (!strcmp(p, "-i")) {
-			if (!argv[1]) {
-				args_required(p);
-			}
-			conn.instance = *++argv, --argc;
-		} else if (!strcmp(p, "-p")) {
+		} else if (!strcmp(p, "-P")) {
 			if (!argv[1]) {
 				args_required(p);
 			}
 			conn.port = atoi(*++argv), --argc;
+		} else if (!strcmp(p, "-p")) {
+			if (!argv[1]) {
+				args_required(p);
+			}
+			conn.password = *++argv, --argc;
+		} else if (!strcmp(p, "-u")) {
+			if (!argv[1]) {
+				args_required(p);
+			}
+			conn.user = *++argv, --argc;
 		}
 	}
 
 	if (!conn.server) {
 		fprintf(stderr, "Please specify a hostname\n");
 		return 1;
+	}
+
+	if (!conn.user) {
+		fprintf(stderr, "A username is required.\n");
+		return 1;
+	}
+
+	if (!conn.password) {
+		fprintf(stderr, "A password is required.\n");
+		return 1;
+	}
+
+	fprintf(stderr, "%s\n", conn.server);
+	if ((p = strchr(conn.server, '\\'))) {
+		fprintf(stderr, "detecting instance\n");
+		conn.instance = p + 1;
+		*p = '\0';
+		fprintf(stderr, "instance: %s\n", conn.instance);
 	}
 
 	tds_debug_init();
