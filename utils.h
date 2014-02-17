@@ -20,5 +20,10 @@
 void dump_hex(void *vp, size_t len);
 unsigned char *str_to_ucs2(const char *s, unsigned char *d, size_t len);
 
+/* From FreeTDS */
+unsigned char *tds7_crypt_pass(const unsigned char *clear_pass, size_t len,
+    unsigned char *crypt_pass);
+
+
 #endif /* __UTILS_H__ */
 

@@ -76,3 +76,19 @@ dump_hex(void *vp, size_t len)
 	if (linebuf_dirty == 1)
 		tds_debug(0, "%s\n", linebuf);
 }
+
+/**
+ * tds7_crypt_pass() -- 'encrypt' TDS 7.0 style passwords.
+ * the calling function is responsible for ensuring crypt_pass is at least·
+ * 'len' characters
+ */
+unsigned char *
+tds7_crypt_pass(const unsigned char *clear_pass, size_t len,
+    unsigned char *crypt_pass)
+{
+	size_t i;
+
+	for (i = 0; i < len; i++)
+		crypt_pass[i] = ((clear_pass[i] << 4) | (clear_pass[i] >> 4)) ^ 0xA5;
+	return crypt_pass;
+}
