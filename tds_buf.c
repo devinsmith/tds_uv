@@ -120,6 +120,13 @@ buf_add32(uv_buf_t *p, uint32_t val)
 }
 
 void
+buf_set_hdr(uv_buf_t *p)
+{
+	p->base[2] = (p->len & 0xff00) >> 8;
+	p->base[3] = (p->len & 0xff);
+}
+
+void
 buf_free(uv_buf_t *p)
 {
 	free(p->base);

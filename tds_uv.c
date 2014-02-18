@@ -170,10 +170,8 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 	*size_ptr++ = (login_len & 0xff0000) >> 16;
 	*size_ptr++ = (login_len & 0xff000000) >> 24;
 
-
 	/* Write header */
-	pkt->base[2] = (pkt->len & 0xff00) >> 8;
-	pkt->base[3] = (pkt->len & 0xff);
+	buf_set_hdr(pkt);
 
 	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
 	dump_hex(pkt->base, pkt->len);
@@ -317,8 +315,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	buf_add32(pkt, 0); /* getpid? */
 
 	/* Write header */
-	pkt->base[2] = (pkt->len & 0xff00) >> 8;
-	pkt->base[3] = (pkt->len & 0xff);
+	buf_set_hdr(pkt);
 
 	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
 	dump_hex(pkt->base, pkt->len);

@@ -53,6 +53,7 @@ void buf_add32(uv_buf_t *p, uint32_t val);
 void buf_add32_le(uv_buf_t *p, uint32_t val);
 void buf_addstring(uv_buf_t *p, const char *bytes);
 void buf_free(uv_buf_t * p);
+void buf_set_hdr(uv_buf_t *p);
 
 #endif /* __TDS_BUF_H__ */
 
