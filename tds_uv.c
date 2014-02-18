@@ -20,11 +20,165 @@ uv_loop_t *loop;
 #define TDS_LOGGED_IN    5
 #define TDS_IDLE         6
 
+static void after_write(uv_write_t *req, int status);
+
+enum tds_login7_optionflag1_values {
+	TDS_DUMPLOAD_OFF = 0x10,
+	TDS_USE_DB_NOTIFY = 0x20,
+	TDS_INIT_DB_FATAL = 0x40,
+	TDS_SET_LANG_ON = 0x80
+};
+
+enum tds_login7_optionflag2_values {
+	TDS_INIT_LANG_REQUIRED = 0x01,
+	TDS_ODBC_ON = 0x02
+};
+
 static void send_login(uv_stream_t *tcp, struct connection *conn);
 
 static void
 send_login(uv_stream_t *tcp, struct connection *conn)
 {
+	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
+	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
+	size_t login7_len_offset;
+	unsigned char *size_ptr;
+	unsigned int login_len;
+	unsigned char unicode_buf[1024];
+	size_t len_user, len_pass;
+	size_t len_server;
+	size_t cur_pos;
+
+	conn->stage = TDS_LOGGING_IN;
+	len_user = strlen(conn->user);
+	len_pass = strlen(conn->password);
+	len_server = strlen(conn->server);
+	if (conn->instance)
+		len_server += strlen(conn->instance) + 1;
+
+	/* Packet header is always 8 bytes */
+	buf_raw_init(pkt, 256);
+	buf_add8(pkt, 0x10); /* Login packet = 0x10  */
+	buf_add8(pkt, 0x01); /* "Normal" status message */
+	buf_add16(pkt, 0xBAAD); /* length in big endian (filled later) */
+	buf_add16(pkt, 0); /* SPID */
+	buf_add8(pkt, 1); /* Packet Id */
+	buf_add8(pkt, 0); /* Window Id (always 0) */
+	/* Here we end the standard TDS packet header */
+
+	/* The first part of the login 7 packet is the length. */
+	login7_len_offset = pkt->len;
+	buf_add32_le(pkt, 0); /* Length to be filled in later */
+	buf_add32_le(pkt, 0x71000001); /* Tell SQL Server we at least support 2000 */
+	buf_add32_le(pkt, 4096); /* Packet size */
+	buf_add32_le(pkt, 7); /* Client version. Is this a magic number? */
+	buf_add32_le(pkt, 0); /* Pid */
+	buf_add32_le(pkt, 0); /* connection id */
+
+	/* OptionFlags1 (see tds_login7_optionflag1_values) */
+	buf_add8(pkt, TDS_DUMPLOAD_OFF |
+	    TDS_USE_DB_NOTIFY | TDS_INIT_DB_FATAL | TDS_SET_LANG_ON);
+
+	/* OptionFlags2 (see tds_login7_optionflag2_values) */
+	buf_add8(pkt, TDS_INIT_LANG_REQUIRED | TDS_ODBC_ON);
+
+	buf_add8(pkt, 0); /* SQL type */
+	buf_add8(pkt, 8); /* option3 */
+	buf_add32_le(pkt, 0); /* Time zone (TODO) */
+	buf_add32_le(pkt, 0); /* LCID (TODO) */
+
+	/* Now the variable part of the packet data. */
+	cur_pos = 86;
+	buf_add16_le(pkt, cur_pos); /* offset filled in later */
+	buf_add16_le(pkt, strlen("hostname")); /* hardcoding some stuff for now */
+	cur_pos += strlen("hostname") * 2;
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, len_user);
+	cur_pos += len_user * 2;
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, len_pass);
+	cur_pos += len_pass * 2;
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, strlen("Microsoft"));
+	cur_pos += strlen("Microsoft") * 2;
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, len_server);
+	cur_pos += len_server * 2;
+
+	/* ibUnused & cbUnused */
+	buf_add16_le(pkt, 0); /* This should be set to 0 */
+	buf_add16_le(pkt, 0);
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, strlen("DB-Library"));
+	cur_pos += strlen("DB-Library") * 2;
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, strlen("us_english"));
+	cur_pos += strlen("us_english") * 2;
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, 0); /* database length */
+
+	buf_addzero(pkt, 6); /* MAC Addr */
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, 0); /* auth length */
+
+	buf_add16_le(pkt, cur_pos);
+	buf_add16_le(pkt, 0); /* db length */
+
+	tds_debug(0, "%d\n", len_pass);
+
+	buf_addraw(pkt, str_to_ucs2("hostname", unicode_buf,
+	    sizeof(unicode_buf)), 16);
+
+	buf_addraw(pkt, str_to_ucs2(conn->user, unicode_buf,
+	    sizeof(unicode_buf)), len_user * 2);
+
+	buf_addraw(pkt, tds7_crypt_pass(str_to_ucs2(conn->password, unicode_buf,
+	    sizeof(unicode_buf)), len_pass * 2, unicode_buf), len_pass * 2);
+
+	buf_addraw(pkt, str_to_ucs2("Microsoft", unicode_buf,
+	    sizeof(unicode_buf)), strlen("Microsoft") * 2);
+
+	buf_addraw(pkt, str_to_ucs2(conn->server, unicode_buf,
+	    sizeof(unicode_buf)), strlen(conn->server) * 2);
+
+	if (conn->instance) {
+		buf_addraw(pkt, str_to_ucs2("\\", unicode_buf,
+		    sizeof(unicode_buf)), 2);
+
+		buf_addraw(pkt, str_to_ucs2(conn->instance, unicode_buf,
+		    sizeof(unicode_buf)), strlen(conn->instance) * 2);
+	}
+
+	buf_addraw(pkt, str_to_ucs2("DB-Library", unicode_buf,
+	    sizeof(unicode_buf)), strlen("DB-Library") * 2);
+
+	buf_addraw(pkt, str_to_ucs2("us_english", unicode_buf,
+	    sizeof(unicode_buf)), strlen("us_english") * 2);
+
+	size_ptr = (unsigned char *)pkt->base + login7_len_offset;
+	login_len = pkt->len - login7_len_offset;
+	*size_ptr++ = (login_len & 0xff);
+	*size_ptr++ = (login_len & 0xff00) >> 8;
+	*size_ptr++ = (login_len & 0xff0000) >> 16;
+	*size_ptr++ = (login_len & 0xff000000) >> 24;
+
+
+	/* Write header */
+	pkt->base[2] = (pkt->len & 0xff00) >> 8;
+	pkt->base[3] = (pkt->len & 0xff);
+
+	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
+	dump_hex(pkt->base, pkt->len);
+
+	uv_write(write_req, tcp, pkt, 1, after_write);
 }
 
 static void
@@ -327,7 +481,6 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	fprintf(stderr, "%s\n", conn.server);
 	if ((p = strchr(conn.server, '\\'))) {
 		fprintf(stderr, "detecting instance\n");
 		conn.instance = p + 1;
