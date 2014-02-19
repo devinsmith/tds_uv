@@ -183,8 +183,10 @@ static void
 tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 {
 	struct connection *conn = tcp->data;
+	uint16_t pkt_len;
+
 	if (nread < 0) {
-		tds_debug(0, "tds_on_read port read error\n");
+		tds_debug(0, "tds_on_read port read error: %d\n", nread);
 		/* Error or EOF */
 		if (buf->base) {
 			free(buf->base);
@@ -201,8 +203,21 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		return;
 	}
 
-	tds_debug(0, "%d bytes read\n", (int)nread);
+	/* Verify that the response from the server is 4, if not kill the
+	 * connection. */
+	if (buf->base[0] != 4) {
+		tds_debug(0, "first byte is not 4: %d\n", buf->base[0]);
+		free(buf->base);
+		uv_close((uv_handle_t*) tcp, NULL);
+		return;
+	}
+
+	pkt_len = (unsigned char)buf->base[2] << 8;
+	pkt_len += (unsigned char)buf->base[3];
+
+	tds_debug(0, "%d bytes read (pkt: %d)\n", (int)nread, pkt_len);
 	tds_debug(0, "Stage: %d\n", conn->stage);
+
 	switch (conn->stage) {
 	case TDS_CONNECTED:
 		/* XXX: Process prelogin packet */
@@ -338,6 +353,7 @@ on_connect(uv_connect_t *req, int status)
 	tds_debug(0, "Connected!\n");
 	conn->stage = TDS_CONNECTED;
 	send_prelogin(stream, conn);
+
 	stream->data = conn;
 	uv_read_start(stream, gen_on_alloc, tds_on_read);
 
