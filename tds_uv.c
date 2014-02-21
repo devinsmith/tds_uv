@@ -390,7 +390,7 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	if (status < 0) {
 		tds_debug(0, "Failed to resolve name (%d): %s\n", status,
 		    uv_strerror(status));
-		return;
+		goto cleanup;
 	}
 
 	uv_ip4_name((struct sockaddr_in *)res->ai_addr, conn->ip_addr,
@@ -406,6 +406,7 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 		sqlrp_detect_port(loop, conn);
 	}
 
+cleanup:
 	uv_freeaddrinfo(res);
 	free(resolver);
 }
