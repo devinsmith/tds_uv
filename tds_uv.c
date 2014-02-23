@@ -367,7 +367,7 @@ void
 gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
 {
 	struct connection *conn = client->data;
-	buf->base = conn->buffer + conn->b_offset;
+	buf->base = (char *)conn->buffer + conn->b_offset;
 	buf->len = suggested_size - conn->b_offset;
 }
 
