@@ -203,22 +203,31 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 
 	/* Verify that the response from the server is 4, if not kill the
 	 * connection. */
-	if (buf->base[0] != 4) {
+	if (conn->b_offset == 0 && buf->base[0] != 0x04) {
 		tds_debug(0, "first byte is not 4: %d\n", buf->base[0]);
 		conn->b_offset = 0;
 		uv_close((uv_handle_t*) tcp, NULL);
 		return;
 	}
 
-	pkt_len = (unsigned char)buf->base[2] << 8;
-	pkt_len += (unsigned char)buf->base[3];
-
-	tds_debug(0, "%d bytes read (pkt: %d)\n", (int)nread, pkt_len);
-
 	conn->b_offset += nread;
-	tds_debug(0, "Stage: %d\n", conn->stage);
+	/* Need first 4 bytes to get packet length */
+	if (conn->b_offset < 4)
+		return;
 
-	/* XXX: Only process if we have a complete packet */
+	pkt_len = conn->buffer[2] << 8;
+	pkt_len += conn->buffer[3];
+
+	/* Don't process until we get a full packet */
+	if (conn->b_offset < pkt_len) {
+		tds_debug(0, "%d bytes read (pkt: %d)\n", (int)nread, pkt_len);
+		return;
+	}
+
+	/* Full packet, reset index */
+	conn->b_offset = 0;
+
+	tds_debug(0, "Stage: %d\n", conn->stage);
 
 	switch (conn->stage) {
 	case TDS_CONNECTED:
@@ -229,8 +238,6 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		dump_hex(buf->base, nread);
 		break;
 	}
-	if (nread == pkt_len)
-		conn->b_offset = 0;
 }
 
 static void
