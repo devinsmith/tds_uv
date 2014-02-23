@@ -48,9 +48,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	if (nread < 0) {
 		tds_debug(0, "detect port read error\n");
 		/* Error or EOF */
-		if (buf->base) {
-			free(buf->base);
-		}
+		conn->b_offset = 0;
 
 		uv_close((uv_handle_t*) handle, NULL);
 		return;
@@ -59,7 +57,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	if (nread == 0) {
 		tds_debug(0, "nothing read\n");
 		/* Everything OK, but nothing read. */
-		free(buf->base);
+		conn->b_offset = 0;
 		uv_udp_recv_stop(handle);
 		return;
 	}
@@ -114,7 +112,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	}
 
 done:
-	free(buf->base);
+	conn->b_offset = 0;
 	uv_udp_recv_stop(handle);
 	free(handle);
 }

@@ -25,6 +25,9 @@ struct connection {
 	char *user;
 	char *password;
 	int stage;
+
+	unsigned char *buffer;
+	unsigned short b_offset;
 };
 
 /* A generic UV eventful allocation function */

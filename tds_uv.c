@@ -188,9 +188,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	if (nread < 0) {
 		tds_debug(0, "tds_on_read port read error: %d\n", nread);
 		/* Error or EOF */
-		if (buf->base) {
-			free(buf->base);
-		}
+		conn->b_offset = 0;
 
 		uv_close((uv_handle_t*) tcp, NULL);
 		return;
@@ -199,7 +197,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	if (nread == 0) {
 		tds_debug(0, "tds_on_read nothing read\n");
 		/* Everything OK, but nothing read. */
-		free(buf->base);
+		conn->b_offset = 0;
 		return;
 	}
 
@@ -207,7 +205,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	 * connection. */
 	if (buf->base[0] != 4) {
 		tds_debug(0, "first byte is not 4: %d\n", buf->base[0]);
-		free(buf->base);
+		conn->b_offset = 0;
 		uv_close((uv_handle_t*) tcp, NULL);
 		return;
 	}
@@ -216,7 +214,11 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	pkt_len += (unsigned char)buf->base[3];
 
 	tds_debug(0, "%d bytes read (pkt: %d)\n", (int)nread, pkt_len);
+
+	conn->b_offset += nread;
 	tds_debug(0, "Stage: %d\n", conn->stage);
+
+	/* XXX: Only process if we have a complete packet */
 
 	switch (conn->stage) {
 	case TDS_CONNECTED:
@@ -227,7 +229,8 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		dump_hex(buf->base, nread);
 		break;
 	}
-	free(buf->base);
+	if (nread == pkt_len)
+		conn->b_offset = 0;
 }
 
 static void
@@ -363,8 +366,9 @@ on_connect(uv_connect_t *req, int status)
 void
 gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
 {
-	buf->base = malloc(suggested_size);
-	buf->len = suggested_size;
+	struct connection *conn = client->data;
+	buf->base = conn->buffer + conn->b_offset;
+	buf->len = suggested_size - conn->b_offset;
 }
 
 void
@@ -453,6 +457,8 @@ main(int argc, char *argv[])
 	char *p;
 
 	memset(&conn, 0, sizeof(struct connection));
+	conn.buffer = malloc(65535);
+
 	/* Parse arguments */
 	while (--argc) {
 		p = *++argv;
@@ -511,6 +517,8 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	return uv_run(loop, UV_RUN_DEFAULT);
+	uv_run(loop, UV_RUN_DEFAULT);
+	free(conn.buffer);
+	return 0;
 }
 
