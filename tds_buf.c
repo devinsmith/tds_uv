@@ -148,3 +148,30 @@ buf_free(uv_buf_t *p)
 	free(p->base);
 }
 
+uint8_t
+buf_get8(struct connection *conn)
+{
+	return conn->buffer[conn->b_offset++];
+}
+
+uint16_t
+buf_get16(struct connection *conn)
+{
+	uint16_t ret;
+
+	ret = conn->buffer[conn->b_offset++] << 8;
+	ret += conn->buffer[conn->b_offset++];
+
+	return ret;
+}
+
+uint16_t
+buf_get16_le(struct connection *conn)
+{
+	uint16_t ret;
+
+	ret = conn->buffer[conn->b_offset++];
+	ret += conn->buffer[conn->b_offset++] << 8;
+
+	return ret;
+}

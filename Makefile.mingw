@@ -3,8 +3,8 @@
 .PHONY: all clean
 
 # Source files for the tdsuv test
-SRCS = sqlrp.c tds_buf.c tds_log.c tds_prelogin.c tds_uv.c utils.c
-OBJS = sqlrp.o tds_buf.o tds_log.o tds_prelogin.o tds_uv.o utils.o
+SRCS = sqlrp.c tds_buf.c tds_log.c tds_prelogin.c tds_tokens.c tds_uv.c utils.c
+OBJS = sqlrp.o tds_buf.o tds_log.o tds_prelogin.o tds_tokens.o tds_uv.o utils.o
 
 CC = gcc
 INTERNAL_CFLAGS = -Wall -O2 -I../OpenSource/libuv/include -I.

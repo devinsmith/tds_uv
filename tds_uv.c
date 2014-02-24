@@ -7,6 +7,7 @@
 #include "tds_buf.h"
 #include "tds_log.h"
 #include "tds_prelogin.h"
+#include "tds_tokens.h"
 #include "tds_uv.h"
 #include "utils.h"
 
@@ -57,13 +58,7 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 
 	/* Packet header is always 8 bytes */
 	buf_raw_init(pkt, 256);
-	buf_add8(pkt, 0x10); /* Login packet = 0x10  */
-	buf_add8(pkt, 0x01); /* "Normal" status message */
-	buf_add16(pkt, 0xBAAD); /* length in big endian (filled later) */
-	buf_add16(pkt, 0); /* SPID */
-	buf_add8(pkt, 1); /* Packet Id */
-	buf_add8(pkt, 0); /* Window Id (always 0) */
-	/* Here we end the standard TDS packet header */
+	buf_tds_init(pkt, 256, 0x10 /* Login */, TDS_EOM);
 
 	/* The first part of the login 7 packet is the length. */
 	login7_len_offset = pkt->len;
@@ -130,8 +125,6 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 
 	buf_add16_le(pkt, cur_pos);
 	buf_add16_le(pkt, 0); /* db length */
-
-	tds_debug(0, "%d\n", len_pass);
 
 	buf_addraw(pkt, str_to_ucs2("hostname", unicode_buf,
 	    sizeof(unicode_buf)), 16);
@@ -228,14 +221,11 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 
 	tds_debug(0, "Stage: %d\n", conn->stage);
 
-	switch (conn->stage) {
-	case TDS_CONNECTED:
+	if (conn->stage == TDS_CONNECTED) {
 		/* XXX: Process prelogin packet */
 		send_login(tcp, conn);
-		break;
-	default:
-		dump_hex(buf->base, nread);
-		break;
+	} else {
+		handle_tokens(conn, nread);
 	}
 }
 

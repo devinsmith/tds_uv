@@ -42,6 +42,8 @@
 #include <stdint.h>
 #include <uv.h>
 
+#include "tds_uv.h"
+
 /* TDS Packet Header Status (see spec 2.2.3.1.2) */
 #define TDS_NORMAL 0x00
 #define TDS_EOM 0x01
@@ -59,6 +61,10 @@ void buf_add32_le(uv_buf_t *p, uint32_t val);
 void buf_addstring(uv_buf_t *p, const char *bytes);
 void buf_free(uv_buf_t * p);
 void buf_set_hdr(uv_buf_t *p);
+
+uint8_t buf_get8(struct connection *conn);
+uint16_t buf_get16(struct connection *conn);
+uint16_t buf_get16_le(struct connection *conn);
 
 #endif /* __TDS_BUF_H__ */
 
