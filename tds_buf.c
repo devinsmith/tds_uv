@@ -58,6 +58,22 @@ buf_raw_init(uv_buf_t *buf, size_t len)
 	buf->len = 0;
 }
 
+/* Create a standard TDS packet header.
+ * Many of the fields are documented in the spec (2.2.3.1).
+ * The length of the packet is set again by the caller via the
+ * buf_set_hdr function. */
+void
+buf_tds_init(uv_buf_t *buf, size_t len, uint8_t type, uint8_t sta_type)
+{
+	buf_raw_init(buf, len);
+	buf_add8(buf, type); /* TDS Packet type (2.2.3.1.1) */
+	buf_add8(buf, sta_type); /* status message */
+	buf_add16(buf, 0); /* length in big endian (filled later) */
+	buf_add16(buf, 0); /* SPID */
+	buf_add8(buf, 1); /* Packet Id (ignored by Microsoft implementation) */
+	buf_add8(buf, 0); /* Window Id (always 0) */
+}
+
 void
 buf_addraw(uv_buf_t *p, const unsigned char *bytes, size_t len)
 {

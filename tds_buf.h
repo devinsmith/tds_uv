@@ -42,8 +42,13 @@
 #include <stdint.h>
 #include <uv.h>
 
+/* TDS Packet Header Status (see spec 2.2.3.1.2) */
+#define TDS_NORMAL 0x00
+#define TDS_EOM 0x01
+
 /* packet creation functions */
 void buf_raw_init(uv_buf_t *buf, size_t len);
+void buf_tds_init(uv_buf_t *buf, size_t len, uint8_t type, uint8_t sta_type);
 void buf_addraw(uv_buf_t *p, const unsigned char *bytes, size_t len);
 void buf_addzero(uv_buf_t *p, int num_zeros);
 void buf_add8(uv_buf_t *p, uint8_t val);

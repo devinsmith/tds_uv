@@ -14,27 +14,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __TDS_UV_H__
-#define __TDS_UV_H__
+/* Header file for TDS Prelogin packet (2.2.6.4). */
 
-struct connection {
-	char ip_addr[16];
-	char *server;
-	unsigned short port;
-	char *instance;
-	char *user;
-	char *password;
-	int stage;
+#ifndef __TDS_PRELOGIN_H__
+#define __TDS_PRELOGIN_H__
 
-	unsigned char *buffer;
-	unsigned short b_offset;
-};
+#include <uv.h>
+#include "tds_uv.h"
 
-/* A generic UV eventful allocation function */
-void gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf);
-void after_write(uv_write_t *req, int status);
+void send_prelogin(uv_stream_t *stream, struct connection *conn);
 
-void tds_connect(struct connection *conn, const struct sockaddr *addr);
-
-#endif /* __TDS_UV_H__ */
+#endif /* __TDS_PRELOGIN_H__ */
 
