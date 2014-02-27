@@ -17,6 +17,14 @@
 #ifndef __TDS_UV_H__
 #define __TDS_UV_H__
 
+struct tds_env {
+	unsigned char collation[5];
+	char *database;
+	char *language;
+	char *charset;
+	int packet_size;
+};
+
 struct connection {
 	char ip_addr[16];
 	char *server;
@@ -28,6 +36,7 @@ struct connection {
 
 	unsigned char *buffer;
 	unsigned short b_offset;
+	struct tds_env env;
 };
 
 /* A generic UV eventful allocation function */

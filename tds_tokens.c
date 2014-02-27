@@ -15,39 +15,159 @@
  */
 
 /* Implementation file for handling various TDS tokens. */
+#include <string.h>
+#include <stdlib.h>
 
 #include "tds_buf.h"
 #include "tds_log.h"
 #include "tds_tokens.h"
 #include "utils.h"
 
+#define TOKEN_ERROR 0xaa
+#define TOKEN_INFO 0xab
+#define TOKEN_LOGINACK 0xad
 #define TOKEN_ENVCHANGE 0xe3
+#define TOKEN_DONE 0xfd
 
 enum {
-	EC_DATABASE = 1
+	EC_DATABASE = 1,
+	EC_LANGUAGE = 2,
+	EC_PKTSIZE = 4,
+	EC_COLLATION = 7
 };
 
 static void handle_envchange(struct connection *conn, uint16_t token_len);
+static void handle_message(struct connection *conn, const char *type, uint16_t token_len);
+static void handle_loginack(struct connection *conn, uint16_t token_len);
+static void handle_done(struct connection *conn);
+
+static void
+handle_done(struct connection *conn)
+{
+	uint16_t status;
+	uint16_t current_command;
+	uint32_t row_count;
+
+	status = buf_get16_le(conn);
+	current_command = buf_get16_le(conn);
+	row_count = buf_get32_le(conn);
+	tds_debug(0, "Done, status %d\n", status);
+}
+
+static void
+handle_message(struct connection *conn, const char *type, uint16_t token_len)
+{
+	uint32_t number;
+	uint8_t state;
+	uint8_t severity;
+	uint16_t text_len;
+	char text[512];
+	uint8_t sname_len;
+	char server_name[256];
+	uint8_t pname_len;
+	char proc_name[256];
+	uint16_t line;
+
+	*text = *server_name = *proc_name = 0;
+
+	tds_debug(0, "+%s: %d\n", type, token_len);
+	number = buf_get32_le(conn);
+	state = buf_get8(conn);
+	severity = buf_get8(conn);
+	text_len = buf_get16_le(conn) * 2;
+	ucs2_to_str(buf_getraw(conn, text_len), text_len, text, sizeof(text));
+	sname_len = buf_get8(conn) * 2;
+	ucs2_to_str(buf_getraw(conn, sname_len), sname_len, server_name, sizeof(server_name));
+	pname_len = buf_get8(conn) * 2;
+	ucs2_to_str(buf_getraw(conn, pname_len), pname_len, proc_name, sizeof(proc_name));
+	line = buf_get16_le(conn);
+
+	if (number > 0 && severity > 0) {
+		tds_debug(0, "Msg %d, Level %d, State %d\n", number, severity, state);
+		tds_debug(0, "Server '%s'", server_name);
+		if (*proc_name != '\0')
+			tds_debug(0, ", Procedure '%s'", proc_name);
+		if (line > 0)
+			tds_debug(0, ", Line %d\n", line);
+		tds_debug(0, "%s\n", text);
+	} else {
+		tds_debug(0, "%s\n", text);
+	}
+}
+
+/* 2.2.7.11 */
+static void
+handle_loginack(struct connection *conn, uint16_t token_len)
+{
+	uint8_t interface;
+	uint32_t tds_version;
+	uint8_t len;
+	char prog_name[256];
+	uint8_t major, minor;
+	uint16_t build;
+
+	tds_debug(0, "+LOGINACK: %d bytes\n", token_len);
+	interface = buf_get8(conn);
+	tds_version = buf_get32_le(conn);
+	len = buf_get8(conn) * 2;
+	ucs2_to_str(buf_getraw(conn, len), len, prog_name, sizeof(prog_name));
+	tds_debug(0, "Prog: %s\n", prog_name);
+	major = buf_get8(conn);
+	minor = buf_get8(conn);
+	build = buf_get16_le(conn);
+}
 
 /* 2.2.7.8 */
 static void
 handle_envchange(struct connection *conn, uint16_t token_len)
 {
 	uint8_t change_type;
-
-	tds_debug(0, "+ENVCHANGE: %d bytes\n", token_len);
+	char *dest;
+	char old[256];
+	uint8_t len;
 
 	change_type = buf_get8(conn);
-	switch (change_type) {
-	case EC_DATABASE:
-		tds_debug(0, "  Change: Database\n");
-		break;
-	default:
-		tds_debug(0, "  Change: %d (unknown)\n", change_type);
+	tds_debug(0, "+ENVCHANGE: (%d) %d bytes\n", change_type, token_len);
+
+	if (change_type == EC_COLLATION) {
+		unsigned char o_col[5];
+
+		/* Grab new collation info */
+		len = buf_get8(conn);
+		memcpy(conn->env.collation, buf_getraw(conn, len), len);
+
+		/* TODO What to do with old collation info? */
+		len = buf_get8(conn);
+		memcpy(o_col, buf_getraw(conn, len), len);
+		return;
 	}
 
-	conn->b_offset += token_len;
+	if (change_type != EC_DATABASE && change_type != EC_LANGUAGE &&
+	    change_type != EC_PKTSIZE) {
+		tds_debug(0, "  Change: %d (unknown)\n", change_type);
+		return;
+	}
 
+	if (change_type == EC_DATABASE) {
+		dest = conn->env.database;
+	} else if (change_type == EC_LANGUAGE) {
+		dest = conn->env.language;
+	}
+
+	len = buf_get8(conn) * 2;
+	dest = malloc(len + 1);
+	ucs2_to_str(buf_getraw(conn, len), len, dest, len);
+	dest[len] = '\0';
+
+	old[0] = '\0';
+	len = buf_get8(conn) * 2;
+	ucs2_to_str(buf_getraw(conn, len), len, old, sizeof(old));
+	tds_debug(0, "%s -> %s\n", old, dest);
+
+	if (change_type == EC_PKTSIZE) {
+		conn->env.packet_size = atoi(dest);
+		free(dest);
+	}
 }
 
 void
@@ -69,7 +189,23 @@ handle_tokens(struct connection *conn, size_t nread)
 			token_len = buf_get16_le(conn);
 			handle_envchange(conn, token_len);
 			break;
+		case TOKEN_ERROR:
+			token_len = buf_get16_le(conn);
+			tds_debug(0, "+TOKEN_ERROR: %d\n", token_len);
+			break;
+		case TOKEN_INFO:
+			token_len = buf_get16_le(conn);
+			handle_message(conn, "TOKEN_INFO", token_len);
+			break;
+		case TOKEN_LOGINACK:
+			token_len = buf_get16_le(conn);
+			handle_loginack(conn, token_len);
+			break;
+		case TOKEN_DONE:
+			handle_done(conn);
+			break;
 		default:
+			tds_debug(0, "unknown type %d\n", token_type);
 			break;
 		}
 	}
