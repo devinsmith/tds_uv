@@ -175,3 +175,37 @@ buf_get16_le(struct connection *conn)
 
 	return ret;
 }
+
+uint32_t
+buf_get32(struct connection *conn)
+{
+	uint32_t ret;
+
+	ret = conn->buffer[conn->b_offset++] << 24;
+	ret += conn->buffer[conn->b_offset++] << 16;
+	ret += conn->buffer[conn->b_offset++] << 8;
+	ret += conn->buffer[conn->b_offset++];
+
+	return ret;
+}
+
+uint32_t
+buf_get32_le(struct connection *conn)
+{
+	uint32_t ret;
+
+	ret = conn->buffer[conn->b_offset++];
+	ret += conn->buffer[conn->b_offset++] << 8;
+	ret += conn->buffer[conn->b_offset++] << 16;
+	ret += conn->buffer[conn->b_offset++] << 24;
+
+	return ret;
+}
+
+unsigned char *
+buf_getraw(struct connection *conn, size_t advance)
+{
+	unsigned char *ret = conn->buffer + conn->b_offset;
+	conn->b_offset += advance;
+	return ret;
+}

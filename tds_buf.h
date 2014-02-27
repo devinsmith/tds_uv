@@ -65,6 +65,9 @@ void buf_set_hdr(uv_buf_t *p);
 uint8_t buf_get8(struct connection *conn);
 uint16_t buf_get16(struct connection *conn);
 uint16_t buf_get16_le(struct connection *conn);
+uint32_t buf_get32(struct connection *conn);
+uint32_t buf_get32_le(struct connection *conn);
+unsigned char *buf_getraw(struct connection *conn, size_t advance);
 
 #endif /* __TDS_BUF_H__ */
 
