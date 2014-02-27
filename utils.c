@@ -37,6 +37,20 @@ str_to_ucs2(const char *s, unsigned char *d, size_t len)
 }
 
 void
+ucs2_to_str(unsigned char *s, size_t slen, char *d, size_t dlen)
+{
+	int i;
+
+	if (slen == 0) return;
+
+	/* Skip every 2 bytes */
+	for (i = 0; i < slen && i < dlen - 1; i += 2) {
+		*d++ = s[i];
+	}
+	*d = '\0';
+}
+
+void
 dump_hex(void *vp, size_t len)
 {
 	char linebuf[80];
