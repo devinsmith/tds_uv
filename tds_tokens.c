@@ -41,6 +41,8 @@ static void handle_message(struct connection *conn, const char *type, uint16_t t
 static void handle_loginack(struct connection *conn, uint16_t token_len);
 static void handle_done(struct connection *conn);
 
+static void fire_query(struct connection *conn);
+
 static void
 handle_done(struct connection *conn)
 {
@@ -52,6 +54,10 @@ handle_done(struct connection *conn)
 	current_command = buf_get16_le(conn);
 	row_count = buf_get32_le(conn);
 	tds_debug(0, "Done, status %d\n", status);
+
+	if (status == 0) {
+		fire_query(conn);
+	}
 }
 
 static void
@@ -211,4 +217,22 @@ handle_tokens(struct connection *conn, size_t nread)
 	}
 }
 
+static void
+fire_query(struct connection *conn)
+{
+	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
+	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
+	unsigned char unicode_buf[1024];
 
+	buf_tds_init(pkt, 256, 0x1 /* SQL Batch */, TDS_EOM);
+
+	buf_addraw(pkt, str_to_ucs2("SELECT 1", unicode_buf,
+	    sizeof(unicode_buf)), strlen("SELECT 1") * 2);
+
+	/* Write header */
+	buf_set_hdr(pkt);
+	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
+	dump_hex(pkt->base, pkt->len);
+
+	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
+}

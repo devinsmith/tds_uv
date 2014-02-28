@@ -57,7 +57,6 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 		len_server += strlen(conn->instance) + 1;
 
 	/* Packet header is always 8 bytes */
-	buf_raw_init(pkt, 256);
 	buf_tds_init(pkt, 256, 0x10 /* Login */, TDS_EOM);
 
 	/* The first part of the login 7 packet is the length. */
@@ -245,6 +244,8 @@ on_connect(uv_connect_t *req, int status)
 {
 	struct connection *conn = req->data;
 	uv_stream_t *stream = req->handle;
+
+	conn->tcp_handle = stream;
 
 	if (status == -1) {
 		tds_debug(0, "connect failed error %s\n", uv_strerror(status));

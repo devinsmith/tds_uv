@@ -34,6 +34,8 @@ struct connection {
 	char *password;
 	int stage;
 
+	uv_stream_t *tcp_handle;
+
 	unsigned char *buffer;
 	unsigned short b_offset;
 	struct tds_env env;
