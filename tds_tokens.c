@@ -191,7 +191,7 @@ handle_tokens(struct connection *conn, size_t nread)
 			break;
 		case TOKEN_ERROR:
 			token_len = buf_get16_le(conn);
-			tds_debug(0, "+TOKEN_ERROR: %d\n", token_len);
+			handle_message(conn, "TOKEN_ERROR", token_len);
 			break;
 		case TOKEN_INFO:
 			token_len = buf_get16_le(conn);

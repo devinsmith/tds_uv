@@ -178,7 +178,9 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	uint16_t pkt_len;
 
 	if (nread < 0) {
-		tds_debug(0, "tds_on_read port read error: %d\n", nread);
+		if (nread != UV__EOF) {
+			tds_debug(0, "tds_on_read port read error: %d\n", nread);
+		}
 		/* Error or EOF */
 		conn->b_offset = 0;
 
