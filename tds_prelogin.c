@@ -92,14 +92,20 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	 * Major version: 1 byte
 	 * Minor version: 1 byte
 	 * Build Number: 2 bytes */
+
+	/* According to the FreeTDS source code:
+	 * TDS 7.2 and higher are sent with: 9.0.0000 */
+	/* TDS 7.1 and lower are sent with:  8.0.0341 */
+	/* The MS-TDF.pdf sample packet sends 9.0.0000 */
 	buf_add8(pkt, 9);
 	buf_add8(pkt, 0);
 	buf_add16(pkt, 0);
-	/* US_SUBBUILD */
+
+	/* US_SUBBUILD (I've never seen a non-zero value here.) */
 	buf_add16(pkt, 0);
 
 	/* TOKEN 1 (ENCRYPTION) */
-	buf_add8(pkt, 2); /* Encryption not supported */
+	buf_add8(pkt, 2); /* Encryption not currently supported. */
 
 	/* TOKEN 2 (INSTOPT) */
 	buf_addstring(pkt, conn->instance);
@@ -111,7 +117,6 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	/* Write header */
 	buf_set_hdr(pkt);
 
-	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
 	dump_hex(pkt->base, pkt->len);
 
 	uv_write(write_req, stream, pkt, 1, after_write);
