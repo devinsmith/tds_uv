@@ -68,8 +68,8 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 
 	buf_add8(pkt, 0); /* SQL type */
 	buf_add8(pkt, 8); /* option3 */
-	buf_add32_le(pkt, 0); /* Time zone (TODO) */
-	buf_add32_le(pkt, 0); /* LCID (TODO) */
+	buf_add32_le(pkt, 0xffffff88); /* Time zone (TODO) */
+	buf_add32_le(pkt, 0x436); /* LCID (TODO) */
 
 	/* Now the variable part of the packet data. */
 	cur_pos = 86;
@@ -167,6 +167,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	struct connection *conn = tcp->data;
 	uint16_t pkt_len;
 
+	tds_debug(0, "nread = %d\n", nread);
 	if (nread < 0) {
 		if (nread != UV__EOF) {
 			tds_debug(0, "tds_on_read port read error: %d\n", nread);
@@ -174,6 +175,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		/* Error or EOF */
 		conn->b_offset = 0;
 
+		tds_debug(0, "Closing connection\n");
 		uv_close((uv_handle_t*) tcp, NULL);
 		return;
 	}
@@ -219,6 +221,10 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	} else {
 		handle_tokens(conn, nread);
 	}
+	conn->b_offset = 0;
+
+	if (conn->stage == 5)
+		fire_query(conn);
 }
 
 void
@@ -407,6 +413,8 @@ main(int argc, char *argv[])
 	if (resolve_connect(&conn) != 0) {
 		return 1;
 	}
+
+	signal(SIGPIPE, SIG_IGN);
 
 	uv_run(loop, UV_RUN_DEFAULT);
 	free(conn.buffer);
