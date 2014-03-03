@@ -41,6 +41,16 @@ struct connection {
 	struct tds_env env;
 };
 
+/* Connection stages */
+#define TDS_DISCONNECTED 0
+#define TDS_RESOLVING    1
+#define TDS_CONNECTING   2
+#define TDS_CONNECTED    3
+#define TDS_LOGGING_IN   4
+#define TDS_LOGGED_IN    5
+#define TDS_IDLE         6
+#define TDS_QUERY        7
+
 /* A generic UV eventful allocation function */
 void gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf);
 void after_write(uv_write_t *req, int status);

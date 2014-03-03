@@ -13,15 +13,6 @@
 
 uv_loop_t *loop;
 
-/* The different stages of our TDS connection */
-#define TDS_DISCONNECTED 0
-#define TDS_RESOLVING    1
-#define TDS_CONNECTING   2
-#define TDS_CONNECTED    3
-#define TDS_LOGGING_IN   4
-#define TDS_LOGGED_IN    5
-#define TDS_IDLE         6
-
 enum tds_login7_optionflag1_values {
 	TDS_DUMPLOAD_OFF = 0x10,
 	TDS_USE_DB_NOTIFY = 0x20,
