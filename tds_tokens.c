@@ -23,6 +23,7 @@
 #include "tds_tokens.h"
 #include "utils.h"
 
+#define TOKEN_COLMETADATA 0x81
 #define TOKEN_ERROR 0xaa
 #define TOKEN_INFO 0xab
 #define TOKEN_LOGINACK 0xad
@@ -41,7 +42,6 @@ static void handle_message(struct connection *conn, const char *type, uint16_t t
 static void handle_loginack(struct connection *conn, uint16_t token_len);
 static void handle_done(struct connection *conn);
 
-static void fire_query(struct connection *conn);
 
 static void
 handle_done(struct connection *conn)
@@ -56,7 +56,7 @@ handle_done(struct connection *conn)
 	tds_debug(0, "Done, status %d\n", status);
 
 	if (status == 0) {
-		fire_query(conn);
+		conn->stage = TDS_LOGGED_IN;
 	}
 }
 
@@ -115,12 +115,14 @@ handle_loginack(struct connection *conn, uint16_t token_len)
 	tds_debug(0, "+LOGINACK: %d bytes\n", token_len);
 	interface = buf_get8(conn);
 	tds_version = buf_get32_le(conn);
+	tds_debug(0, "Version: %x\n", tds_version);
 	len = buf_get8(conn) * 2;
 	ucs2_to_str(buf_getraw(conn, len), len, prog_name, sizeof(prog_name));
 	tds_debug(0, "Prog: %s\n", prog_name);
 	major = buf_get8(conn);
 	minor = buf_get8(conn);
 	build = buf_get16_le(conn);
+	tds_debug(0, "Major: %d Minor: %d Build: %d\n", major, minor, build);
 }
 
 /* 2.2.7.8 */
@@ -176,6 +178,22 @@ handle_envchange(struct connection *conn, uint16_t token_len)
 	}
 }
 
+/* 2.2.7.4 */
+void
+process_colmetadata(struct connection *conn, uint16_t token_len)
+{
+	uint16_t user_type;
+	uint16_t flags;
+	uint8_t col_type;
+	tds_debug(0, "+COLMETADATA: %d\n", token_len);
+
+	user_type = buf_get16_le(conn);
+	flags = buf_get16_le(conn);
+	col_type = buf_get8(conn);
+	tds_debug(0, "Col: user type: %d, flags: %d, col_type: %d\n", user_type,
+	    flags, col_type);
+}
+
 void
 handle_tokens(struct connection *conn, size_t nread)
 {
@@ -191,6 +209,11 @@ handle_tokens(struct connection *conn, size_t nread)
 
 		token_type = buf_get8(conn);
 		switch (token_type) {
+		case TOKEN_COLMETADATA:
+			token_len = buf_get16_le(conn);
+			process_colmetadata(conn, token_len);
+			conn->stage = TDS_QUERY;
+			break;
 		case TOKEN_ENVCHANGE:
 			token_len = buf_get16_le(conn);
 			handle_envchange(conn, token_len);
@@ -217,7 +240,7 @@ handle_tokens(struct connection *conn, size_t nread)
 	}
 }
 
-static void
+void
 fire_query(struct connection *conn)
 {
 	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
