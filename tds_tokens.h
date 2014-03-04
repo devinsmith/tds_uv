@@ -23,7 +23,7 @@
 #include "tds_uv.h"
 
 void handle_tokens(struct connection *conn, size_t nread);
-void fire_query(struct connection *conn);
+void fire_query(struct connection *conn, const char *sql);
 
 #endif /* __TDS_TOKENS_H__ */
 

@@ -224,7 +224,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	conn->b_offset = 0;
 
 	if (conn->stage == 5)
-		fire_query(conn);
+		fire_query(conn, "SELECT 'abc' [Title], 2, GETDATE()[Today]");
 }
 
 void

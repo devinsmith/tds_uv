@@ -25,6 +25,18 @@ struct tds_env {
 	int packet_size;
 };
 
+#define TDS_COLUMN_MAX_LEN 256
+
+struct tds_column {
+	char name[TDS_COLUMN_MAX_LEN];
+	int col_type;
+};
+
+struct tds_result {
+	int ncols;
+	struct tds_column *cols;
+};
+
 struct connection {
 	char ip_addr[16];
 	char *server;
@@ -39,6 +51,9 @@ struct connection {
 	unsigned char *buffer;
 	unsigned short b_offset;
 	struct tds_env env;
+
+	/* Stores the current result if any */
+	struct tds_result result;
 };
 
 /* Connection stages */

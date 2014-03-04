@@ -18,6 +18,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "constants.h"
 #include "tds_buf.h"
 #include "tds_log.h"
 #include "tds_tokens.h"
@@ -27,6 +28,7 @@
 #define TOKEN_ERROR 0xaa
 #define TOKEN_INFO 0xab
 #define TOKEN_LOGINACK 0xad
+#define TOKEN_ROW 0xd1
 #define TOKEN_ENVCHANGE 0xe3
 #define TOKEN_DONE 0xfd
 
@@ -180,18 +182,74 @@ handle_envchange(struct connection *conn, uint16_t token_len)
 
 /* 2.2.7.4 */
 void
-process_colmetadata(struct connection *conn, uint16_t token_len)
+process_colmetadata(struct connection *conn)
 {
 	uint16_t user_type;
 	uint16_t flags;
 	uint8_t col_type;
-	tds_debug(0, "+COLMETADATA: %d\n", token_len);
+	uint16_t total_cols;
+	unsigned int i;
+	uint8_t colname_len;
 
-	user_type = buf_get16_le(conn);
-	flags = buf_get16_le(conn);
-	col_type = buf_get8(conn);
-	tds_debug(0, "Col: user type: %d, flags: %d, col_type: %d\n", user_type,
-	    flags, col_type);
+	total_cols = buf_get16_le(conn);
+
+	tds_debug(0, "+COLMETADATA: Total cols: %d\n", total_cols);
+	if (total_cols == 0xFFFF) {
+		tds_debug(0, "No column meta data\n");
+		total_cols = 0;
+		return;
+	}
+
+	conn->result.ncols = total_cols;
+	conn->result.cols = calloc(total_cols, sizeof(struct tds_column));
+
+	for (i = 0; i < total_cols; i++) {
+		uint32_t col_len;
+		user_type = buf_get16_le(conn);
+		flags = buf_get16_le(conn);
+		col_type = buf_get8(conn);
+		conn->result.cols[i].col_type = col_type;
+		if (col_type == TDS_BIGVARCHAR_TYPE) {
+			col_len = buf_get16_le(conn);
+			/* XXX: actually handle collation */
+			buf_getraw(conn, 5);
+		}
+
+		/* Read column name */
+		colname_len = buf_get8(conn) * 2;
+		ucs2_to_str(buf_getraw(conn, colname_len), colname_len,
+		    conn->result.cols[i].name, TDS_COLUMN_MAX_LEN);
+
+
+		tds_debug(0, "Col: user type: %d, flags: %d, col_type: %d: %s\n", user_type,
+	    flags, col_type, conn->result.cols[i].name);
+	}
+}
+
+static void
+handle_row(struct connection *conn)
+{
+	unsigned int i;
+	uint32_t len;
+
+	tds_debug(0, "Row\n");
+	for (i = 0; i < conn->result.ncols; i++) {
+		switch (conn->result.cols[i].col_type) {
+		case TDS_INT4_TYPE:
+			buf_get32_le(conn);
+			break;
+		case TDS_DATETIME_TYPE:
+			buf_getraw(conn, 8);
+			break;
+		case TDS_BIGVARCHAR_TYPE:
+			len = buf_get16_le(conn);
+			buf_getraw(conn, len);
+			break;
+		default:
+			tds_debug(0, "Unknown type!\n");
+			break;
+		}
+	}
 }
 
 void
@@ -210,8 +268,7 @@ handle_tokens(struct connection *conn, size_t nread)
 		token_type = buf_get8(conn);
 		switch (token_type) {
 		case TOKEN_COLMETADATA:
-			token_len = buf_get16_le(conn);
-			process_colmetadata(conn, token_len);
+			process_colmetadata(conn);
 			conn->stage = TDS_QUERY;
 			break;
 		case TOKEN_ENVCHANGE:
@@ -233,6 +290,9 @@ handle_tokens(struct connection *conn, size_t nread)
 		case TOKEN_DONE:
 			handle_done(conn);
 			break;
+		case TOKEN_ROW:
+			handle_row(conn);
+			break;
 		default:
 			tds_debug(0, "unknown type %d\n", token_type);
 			break;
@@ -241,7 +301,7 @@ handle_tokens(struct connection *conn, size_t nread)
 }
 
 void
-fire_query(struct connection *conn)
+fire_query(struct connection *conn, const char *sql)
 {
 	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
 	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
@@ -249,8 +309,8 @@ fire_query(struct connection *conn)
 
 	buf_tds_init(pkt, 256, 0x1 /* SQL Batch */, TDS_EOM);
 
-	buf_addraw(pkt, str_to_ucs2("SELECT 1", unicode_buf,
-	    sizeof(unicode_buf)), strlen("SELECT 1") * 2);
+	buf_addraw(pkt, str_to_ucs2(sql, unicode_buf,
+	    sizeof(unicode_buf)), strlen(sql) * 2);
 
 	/* Write header */
 	buf_set_hdr(pkt);
