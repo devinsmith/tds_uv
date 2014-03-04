@@ -19,6 +19,7 @@
 
 /* The TDS protocol column/row types */
 #define TDS_INT4_TYPE 0x38
+#define TDS_DATETIME_TYPE 0x3D
 #define TDS_BIGVARCHAR_TYPE 0xA7
 
 #endif /* __TDS_CONSTANTS_H__ */
