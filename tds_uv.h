@@ -17,6 +17,8 @@
 #ifndef __TDS_UV_H__
 #define __TDS_UV_H__
 
+#include <uv.h>
+
 struct tds_env {
 	unsigned char collation[5];
 	char *database;
@@ -38,6 +40,7 @@ struct tds_result {
 };
 
 struct connection {
+	uv_loop_t *loop;
 	char ip_addr[16];
 	char *server;
 	unsigned short port;

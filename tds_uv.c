@@ -11,8 +11,6 @@
 #include "tds_uv.h"
 #include "utils.h"
 
-uv_loop_t *loop;
-
 enum tds_login7_optionflag1_values {
 	TDS_DUMPLOAD_OFF = 0x10,
 	TDS_USE_DB_NOTIFY = 0x20,
@@ -277,7 +275,7 @@ tds_connect(struct connection *conn, const struct sockaddr *addr)
 	connect_req = malloc(sizeof(uv_connect_t));
 	socket = malloc(sizeof(uv_tcp_t));
 
-	uv_tcp_init(loop, socket);
+	uv_tcp_init(conn->loop, socket);
 	conn->stage = TDS_CONNECTING;
 	connect_req->data = conn;
 	uv_tcp_connect(connect_req, socket, addr, on_connect);
@@ -304,7 +302,7 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 		tds_connect(conn, (struct sockaddr *)res->ai_addr);
 	} else {
 		tds_debug(0, "no port! Need to detect.\n");
-		sqlrp_detect_port(loop, conn);
+		sqlrp_detect_port(conn->loop, conn);
 	}
 
 cleanup:
@@ -328,7 +326,7 @@ resolve_connect(struct connection *conn)
 		snprintf(port, sizeof(port), "%d", conn->port);
 		pport = port;
 	}
-	r = uv_getaddrinfo(loop, resolver, on_resolved, conn->server, pport,
+	r = uv_getaddrinfo(conn->loop, resolver, on_resolved, conn->server, pport,
 	    NULL);
 
 	if (r) {
@@ -408,7 +406,7 @@ main(int argc, char *argv[])
 	tds_debug_init();
 	tds_debug_set_log_level(0);
 
-	loop = uv_default_loop();
+	conn.loop = uv_default_loop();
 
 	if (resolve_connect(&conn) != 0) {
 		return 1;
@@ -416,7 +414,7 @@ main(int argc, char *argv[])
 
 	signal(SIGPIPE, SIG_IGN);
 
-	uv_run(loop, UV_RUN_DEFAULT);
+	uv_run(conn.loop, UV_RUN_DEFAULT);
 	free(conn.buffer);
 	return 0;
 }
