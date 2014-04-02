@@ -108,7 +108,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 		conn->port = l;
 		tds_debug(0, "Port = %d\n", conn->port);
 		uv_ip4_addr(conn->ip_addr, conn->port, &addr);
-		tds_connect(conn, (struct sockaddr *)&addr);
+		tds_connect_sa(conn, (struct sockaddr *)&addr);
 	}
 
 done:

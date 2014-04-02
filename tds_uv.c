@@ -267,7 +267,7 @@ gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
 }
 
 void
-tds_connect(struct connection *conn, const struct sockaddr *addr)
+tds_connect_sa(struct connection *conn, const struct sockaddr *addr)
 {
 	uv_connect_t *connect_req;
 	uv_tcp_t *socket;
@@ -299,7 +299,7 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	/* At this point we should have an IP address for our hostname, but
 	 * we may not have a port. */
 	if (conn->port > 0) {
-		tds_connect(conn, (struct sockaddr *)res->ai_addr);
+		tds_connect_sa(conn, (struct sockaddr *)res->ai_addr);
 	} else {
 		tds_debug(0, "no port! Need to detect.\n");
 		sqlrp_detect_port(conn->loop, conn);
