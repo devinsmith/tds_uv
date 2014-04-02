@@ -221,8 +221,10 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	}
 	conn->b_offset = 0;
 
-	if (conn->stage == 5)
+	if (conn->stage == 5) {
+		conn->on_connect(conn);
 		fire_query(conn, "SELECT 'abc' [Title], 2, GETDATE()[Today]");
+	}
 }
 
 void
@@ -311,12 +313,14 @@ cleanup:
 }
 
 int
-resolve_connect(struct connection *conn)
+tds_connect(struct connection *conn, void (*on_connect)(struct connection *))
 {
 	int r;
 	uv_getaddrinfo_t *resolver;
 	char port[sizeof("65535")];
 	char *pport = NULL;
+
+	conn->on_connect = on_connect;
 
 	/* Allocate a new resolver, will be freed in "on_resolved" */
 	resolver = malloc(sizeof(uv_getaddrinfo_t));
@@ -343,6 +347,12 @@ args_required(char *arg)
 {
 	fprintf(stderr, "option '%s' expects a parameter.\n", arg);
 	exit(1);
+}
+
+static void
+server_connected(struct connection *conn)
+{
+	tds_debug(0, "Connected (callback)\n");
 }
 
 int
@@ -408,7 +418,7 @@ main(int argc, char *argv[])
 
 	conn.loop = uv_default_loop();
 
-	if (resolve_connect(&conn) != 0) {
+	if (tds_connect(&conn, server_connected) != 0) {
 		return 1;
 	}
 

@@ -55,6 +55,8 @@ struct connection {
 	unsigned short b_offset;
 	struct tds_env env;
 
+	void (*on_connect)(struct connection *);
+
 	/* Stores the current result if any */
 	struct tds_result result;
 };
