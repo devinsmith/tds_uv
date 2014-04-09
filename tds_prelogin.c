@@ -18,12 +18,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "constants.h"
 #include "tds_buf.h"
 #include "tds_log.h"
 #include "tds_prelogin.h"
 #include "utils.h"
-
-#define TDS_PRELOGIN_PKT_TYPE 0x12
 
 void
 send_prelogin(uv_stream_t *stream, struct connection *conn)
@@ -35,7 +34,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	unsigned char *size_ptr;
 
 	/* Packet header is always 8 bytes */
-	buf_tds_init(pkt, 128, TDS_PRELOGIN_PKT_TYPE, TDS_EOM);
+	buf_tds_init(pkt, 128, TDS_PRELOGIN, TDS_EOM);
 
 	/* keep a pointer to the start of tokens */
 	token_offset = pkt->len;

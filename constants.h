@@ -22,5 +22,11 @@
 #define TDS_DATETIME_TYPE 0x3D
 #define TDS_BIGVARCHAR_TYPE 0xA7
 
+/* TDS packet types (defined in 2.2.3.1.1) */
+#define TDS_SQL_BATCH 0x01
+#define TDS_RPC 0x03
+#define TDS_RESULT 0x04
+#define TDS_PRELOGIN 0x12
+
 #endif /* __TDS_CONSTANTS_H__ */
 
