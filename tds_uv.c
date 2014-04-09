@@ -46,7 +46,7 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 		len_server += strlen(conn->instance) + 1;
 
 	/* Packet header is always 8 bytes */
-	buf_tds_init(pkt, 256, 0x10 /* Login */, TDS_EOM);
+	buf_tds_init(pkt, 256, TDS_LOGIN, TDS_EOM);
 
 	/* The first part of the login 7 packet is the length. */
 	login7_len_offset = pkt->len;

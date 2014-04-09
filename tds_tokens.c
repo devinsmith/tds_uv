@@ -307,7 +307,7 @@ fire_query(struct connection *conn, const char *sql)
 	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
 	unsigned char unicode_buf[1024];
 
-	buf_tds_init(pkt, 256, 0x1 /* SQL Batch */, TDS_EOM);
+	buf_tds_init(pkt, 256, TDS_SQL_BATCH, TDS_EOM);
 
 	buf_addraw(pkt, str_to_ucs2(sql, unicode_buf,
 	    sizeof(unicode_buf)), strlen(sql) * 2);
