@@ -26,6 +26,7 @@
 #define TDS_SQL_BATCH 0x01
 #define TDS_RPC 0x03
 #define TDS_RESULT 0x04
+#define TDS_LOGIN 0x10
 #define TDS_PRELOGIN 0x12
 
 #endif /* __TDS_CONSTANTS_H__ */
