@@ -61,7 +61,7 @@ struct connection {
 	struct tds_result result;
 };
 
-struct db_params {
+struct db_param {
 	char *name;
 	unsigned char status;
 	int type;
