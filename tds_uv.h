@@ -61,6 +61,15 @@ struct connection {
 	struct tds_result result;
 };
 
+struct db_params {
+	char *name;
+	unsigned char status;
+	int type;
+	unsigned short maxlen;
+	unsigned short datalen;
+	unsigned char *value;
+};
+
 /* Connection stages */
 #define TDS_DISCONNECTED 0
 #define TDS_RESOLVING    1
