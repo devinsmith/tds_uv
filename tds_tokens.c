@@ -44,7 +44,7 @@ static void handle_message(struct connection *conn, const char *type, uint16_t t
 static void handle_loginack(struct connection *conn, uint16_t token_len);
 static void handle_done(struct connection *conn);
 
-
+/* Token: DONE (2.2.7.4) */
 static void
 handle_done(struct connection *conn)
 {
