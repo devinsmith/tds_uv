@@ -57,7 +57,7 @@ handle_done(struct connection *conn)
 	row_count = buf_get32_le(conn);
 	tds_debug(0, "Done, status %d\n", status);
 
-	if (status == 0) {
+	if (status == 0 && conn->stage == TDS_LOGGING_IN) {
 		conn->stage = TDS_LOGGED_IN;
 	}
 }
