@@ -319,3 +319,53 @@ fire_query(struct connection *conn, const char *sql)
 
 	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
 }
+
+void
+exec_sp(struct connection *conn, const char *proc, struct db_param *params,
+    size_t nparams)
+{
+	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
+	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
+	size_t procname_len;
+	unsigned char unicode_buf[1024];
+	size_t i;
+
+	procname_len = strlen(proc);
+
+	buf_tds_init(pkt, 1024, TDS_RPC, TDS_EOM);
+	buf_add16_le(pkt, procname_len);
+	buf_addraw(pkt, str_to_ucs2(proc, unicode_buf,
+	    sizeof(unicode_buf)), strlen(proc) * 2);
+
+	/* Options */
+	buf_add16_le(pkt, 0);
+	for (i = 0; i < nparams; i++) {
+		size_t len;
+
+		len = strlen(params[i].name);
+
+		buf_add8(pkt, len);
+		buf_addraw(pkt, str_to_ucs2(params[i].name, unicode_buf,
+	    sizeof(unicode_buf)), len * 2);
+		buf_add8(pkt, params[i].status); /* Status: Output parameter */
+
+		/* Type info */
+		/* String param specific */
+		buf_add8(pkt, 0xe7); /* datatype, 0xe7 = VARCHAR */
+		len = strlen((char *)params[i].value);
+		if (len >= 4000)
+			buf_add16_le(pkt, (1 << 16) - 1); /* MAX */
+		else
+			buf_add16_le(pkt, len * 2);
+
+		buf_addraw(pkt, conn->env.collation, sizeof(conn->env.collation));
+
+		/* Parameter info */
+		buf_add16_le(pkt, len * 2);
+		buf_addraw(pkt, str_to_ucs2((char *)params[i].value, unicode_buf,
+	    sizeof(unicode_buf)), len * 2);
+	}
+	buf_set_hdr(pkt);
+	dump_hex(pkt->base, pkt->len);
+	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
+}
