@@ -65,7 +65,7 @@ buf_raw_init(uv_buf_t *buf, size_t len)
 void
 buf_tds_init(uv_buf_t *buf, size_t len, uint8_t type, uint8_t sta_type)
 {
-	buf_raw_init(buf, len);
+	buf_raw_init(buf, len + 8);
 	buf_add8(buf, type); /* TDS Packet type (2.2.3.1.1) */
 	buf_add8(buf, sta_type); /* status message */
 	buf_add16(buf, 0); /* length in big endian (filled later) */
