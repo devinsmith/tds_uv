@@ -310,20 +310,23 @@ handle_tokens(struct connection *conn, size_t nread)
 }
 
 void
-fire_query(struct connection *conn, const char *sql)
+tds_query(struct connection *conn, const char *sql)
 {
 	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
 	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
 	unsigned char unicode_buf[1024];
+	size_t sql_len;
 
-	buf_tds_init(pkt, 256, TDS_SQL_BATCH, TDS_EOM);
+	conn->stage = TDS_QUERY;
+
+	sql_len = strlen(sql) * 2;
+	buf_tds_init(pkt, sql_len, TDS_SQL_BATCH, TDS_EOM);
 
 	buf_addraw(pkt, str_to_ucs2(sql, unicode_buf,
-	    sizeof(unicode_buf)), strlen(sql) * 2);
+	    sizeof(unicode_buf)), sql_len);
 
 	/* Write header */
 	buf_set_hdr(pkt);
-	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
 	dump_hex(pkt->base, pkt->len);
 
 	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
