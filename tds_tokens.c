@@ -105,6 +105,7 @@ handle_message(struct connection *conn, const char *type, uint16_t token_len)
 		if (line > 0)
 			tds_debug(0, ", Line %d\n", line);
 		tds_debug(0, "%s\n", text);
+		exit(1);
 	} else {
 		tds_debug(0, "%s\n", text);
 	}
