@@ -55,11 +55,18 @@ handle_done(struct connection *conn)
 	status = buf_get16_le(conn);
 	current_command = buf_get16_le(conn);
 	row_count = buf_get32_le(conn);
-	tds_debug(0, "Done, status %d\n", status);
+	tds_debug(0, "Done (CurCmd: %d)\n", current_command);
+	tds_debug(0, "Done, status %d, rows affected\n", status, row_count);
 
-	if (status == 0 && conn->stage == TDS_LOGGING_IN) {
-		conn->stage = TDS_LOGGED_IN;
+	if (status == 0) {
+		if (conn->stage == TDS_LOGGING_IN) {
+			conn->stage = TDS_LOGGED_IN;
+		} else if (conn->stage == TDS_QUERY) {
+			if (conn->on_done)
+				conn->on_done(conn, row_count);
+		}
 	}
+
 }
 
 static void

@@ -56,6 +56,7 @@ struct connection {
 	struct tds_env env;
 
 	void (*on_connect)(struct connection *);
+	void (*on_done)(struct connection *, int row_count);
 
 	/* Stores the current result if any */
 	struct tds_result result;
