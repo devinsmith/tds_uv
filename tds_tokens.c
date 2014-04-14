@@ -145,7 +145,6 @@ handle_envchange(struct connection *conn, uint16_t token_len)
 	uint8_t len;
 
 	change_type = buf_get8(conn);
-	tds_debug(0, "+ENVCHANGE: (%d) %d bytes\n", change_type, token_len);
 
 	if (change_type == EC_COLLATION) {
 		unsigned char o_col[5];
@@ -162,7 +161,8 @@ handle_envchange(struct connection *conn, uint16_t token_len)
 
 	if (change_type != EC_DATABASE && change_type != EC_LANGUAGE &&
 	    change_type != EC_PKTSIZE) {
-		tds_debug(0, "  Change: %d (unknown)\n", change_type);
+		tds_debug(0, "+ENVCHANGE: (change type unknown: %d) %d bytes\n",
+		    change_type, token_len);
 		return;
 	}
 
@@ -180,7 +180,8 @@ handle_envchange(struct connection *conn, uint16_t token_len)
 	old[0] = '\0';
 	len = buf_get8(conn) * 2;
 	ucs2_to_str(buf_getraw(conn, len), len, old, sizeof(old));
-	tds_debug(0, "%s -> %s\n", old, dest);
+	tds_debug(1, "ENVCHANGE (change type %d): %s -> %s\n", change_type, old,
+	    dest);
 
 	if (change_type == EC_PKTSIZE) {
 		conn->env.packet_size = atoi(dest);
