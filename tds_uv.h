@@ -31,7 +31,8 @@ struct tds_env {
 
 struct tds_column {
 	char name[TDS_COLUMN_MAX_LEN];
-	int col_type;
+	int type;
+	int len;
 };
 
 struct tds_result {

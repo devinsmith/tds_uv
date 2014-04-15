@@ -32,6 +32,7 @@
 #define TOKEN_ROW 0xd1
 #define TOKEN_ENVCHANGE 0xe3
 #define TOKEN_DONE 0xfd
+#define TOKEN_DONEINPROC 0xff
 
 enum {
 	EC_DATABASE = 1,
@@ -57,7 +58,7 @@ handle_done(struct connection *conn)
 	current_command = buf_get16_le(conn);
 	row_count = buf_get32_le(conn);
 	tds_debug(0, "Done (CurCmd: %d)\n", current_command);
-	tds_debug(0, "Done, status %d, rows affected\n", status, row_count);
+	tds_debug(0, "Done, status %d, %d rows affected\n", status, row_count);
 
 	if (status == 0) {
 		if (conn->stage == TDS_LOGGING_IN) {
@@ -219,10 +220,11 @@ process_colmetadata(struct connection *conn)
 		user_type = buf_get16_le(conn);
 		flags = buf_get16_le(conn);
 		col_type = buf_get8(conn);
-		conn->result.cols[i].col_type = col_type;
+		conn->result.cols[i].type = col_type;
 
 		/* The next bytes of the packet determine how many bytes are used
 		 * to represent the size of the length of the column. */
+		column_len = 0;
 		column_len_size = tds_get_size_by_type(col_type);
 		if (column_len_size == 1) {
 			column_len = buf_get8(conn);
@@ -234,6 +236,8 @@ process_colmetadata(struct connection *conn)
 			tds_debug(0, "Length for column type %d is unknown.\n", col_type);
 			return;
 		}
+
+		conn->result.cols[i].len = column_len;
 
 		if (col_type == TDS_BIGVARCHAR) {
 			/* XXX: actually handle collation */
@@ -256,10 +260,18 @@ handle_row(struct connection *conn)
 {
 	unsigned int i;
 	uint32_t len;
+	uint8_t bit;
 
 	tds_debug(0, "Row\n");
 	for (i = 0; i < conn->result.ncols; i++) {
-		switch (conn->result.cols[i].col_type) {
+		switch (conn->result.cols[i].type) {
+		case TDS_BITN:
+			len = buf_get8(conn);
+			if (len == 1) {
+				bit = buf_get8(conn);
+				tds_debug(0, "bit = %d\n", bit);
+			}
+			break;
 		case TDS_INT4:
 			buf_get32_le(conn);
 			break;
@@ -271,7 +283,7 @@ handle_row(struct connection *conn)
 			buf_getraw(conn, len);
 			break;
 		default:
-			tds_debug(0, "Unknown type!\n");
+			tds_debug(0, "Unknown type! (%d)\n", conn->result.cols[i].type);
 			break;
 		}
 	}
@@ -317,6 +329,9 @@ handle_tokens(struct connection *conn, size_t nread)
 			break;
 		case TOKEN_ROW:
 			handle_row(conn);
+			break;
+		case TOKEN_DONEINPROC:
+			handle_done(conn);
 			break;
 		default:
 			tds_debug(0, "unknown type %d\n", token_type);
