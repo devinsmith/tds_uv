@@ -22,6 +22,7 @@
 #include "tds_buf.h"
 #include "tds_log.h"
 #include "tds_tokens.h"
+#include "tds_types.h"
 #include "utils.h"
 
 #define TOKEN_COLMETADATA 0x81
@@ -213,13 +214,28 @@ process_colmetadata(struct connection *conn)
 	conn->result.cols = calloc(total_cols, sizeof(struct tds_column));
 
 	for (i = 0; i < total_cols; i++) {
-		uint32_t col_len;
+		int column_len_size;
+		uint32_t column_len;
 		user_type = buf_get16_le(conn);
 		flags = buf_get16_le(conn);
 		col_type = buf_get8(conn);
 		conn->result.cols[i].col_type = col_type;
-		if (col_type == TDS_BIGVARCHAR_TYPE) {
-			col_len = buf_get16_le(conn);
+
+		/* The next bytes of the packet determine how many bytes are used
+		 * to represent the size of the length of the column. */
+		column_len_size = tds_get_size_by_type(col_type);
+		if (column_len_size == 1) {
+			column_len = buf_get8(conn);
+		} else if (column_len_size == 2) {
+			column_len = buf_get16_le(conn);
+		} else if (column_len_size == 4) {
+			column_len = buf_get32_le(conn);
+		} else if (column_len_size == -1) {
+			tds_debug(0, "Length for column type %d is unknown.\n", col_type);
+			return;
+		}
+
+		if (col_type == TDS_BIGVARCHAR) {
 			/* XXX: actually handle collation */
 			buf_getraw(conn, 5);
 		}
@@ -244,13 +260,13 @@ handle_row(struct connection *conn)
 	tds_debug(0, "Row\n");
 	for (i = 0; i < conn->result.ncols; i++) {
 		switch (conn->result.cols[i].col_type) {
-		case TDS_INT4_TYPE:
+		case TDS_INT4:
 			buf_get32_le(conn);
 			break;
-		case TDS_DATETIME_TYPE:
+		case TDS_DATETIME:
 			buf_getraw(conn, 8);
 			break;
-		case TDS_BIGVARCHAR_TYPE:
+		case TDS_BIGVARCHAR:
 			len = buf_get16_le(conn);
 			buf_getraw(conn, len);
 			break;

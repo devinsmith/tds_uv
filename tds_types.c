@@ -14,15 +14,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __TDS_CONSTANTS_H__
-#define __TDS_CONSTANTS_H__
+#include "tds_types.h"
 
-/* TDS packet types (defined in 2.2.3.1.1) */
-#define TDS_SQL_BATCH 0x01
-#define TDS_RPC 0x03
-#define TDS_RESULT 0x04
-#define TDS_LOGIN 0x10
-#define TDS_PRELOGIN 0x12
-
-#endif /* __TDS_CONSTANTS_H__ */
+int
+tds_get_size_by_type(int type)
+{
+	switch (type) {
+	case TDS_INT4:
+		return 0;
+	case TDS_BITN:
+		return 1;
+	case TDS_BIGVARCHAR:
+		return 2;
+	default:
+		return -1;
+	}
+}
 
