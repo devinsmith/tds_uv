@@ -25,6 +25,7 @@
 #include "tds_types.h"
 #include "utils.h"
 
+#define TOKEN_RETURNSTATUS 0x79
 #define TOKEN_COLMETADATA 0x81
 #define TOKEN_ERROR 0xaa
 #define TOKEN_INFO 0xab
@@ -32,6 +33,7 @@
 #define TOKEN_ROW 0xd1
 #define TOKEN_ENVCHANGE 0xe3
 #define TOKEN_DONE 0xfd
+#define TOKEN_DONEPROC 0xfe
 #define TOKEN_DONEINPROC 0xff
 
 enum {
@@ -46,20 +48,22 @@ static void handle_message(struct connection *conn, const char *type, uint16_t t
 static void handle_loginack(struct connection *conn, uint16_t token_len);
 static void handle_done(struct connection *conn);
 
-/* Token: DONE (2.2.7.4) */
+/* Token: DONE (2.2.7.5) */
 static void
 handle_done(struct connection *conn)
 {
 	uint16_t status;
-	uint16_t current_command;
 	uint32_t row_count;
 
 	status = buf_get16_le(conn);
-	current_command = buf_get16_le(conn);
+	/* The next unsigned short (16 bits) contains a token of the current
+	 * SQL statement, but we don't use it yet. */
+	buf_get16_le(conn);
+
 	row_count = buf_get32_le(conn);
-	tds_debug(0, "Done (CurCmd: %d)\n", current_command);
 	tds_debug(0, "Done, status %d, %d rows affected\n", status, row_count);
 
+	/* Check if this is the final done before calling any callbacks */
 	if (status == 0) {
 		if (conn->stage == TDS_LOGGING_IN) {
 			conn->stage = TDS_LOGGED_IN;
@@ -292,6 +296,8 @@ handle_row(struct connection *conn)
 void
 handle_tokens(struct connection *conn, size_t nread)
 {
+	uint32_t ret;
+
 	dump_hex(conn->buffer, nread);
 
 	/* Start at 0x08 */
@@ -325,13 +331,18 @@ handle_tokens(struct connection *conn, size_t nread)
 			handle_loginack(conn, token_len);
 			break;
 		case TOKEN_DONE:
+		case TOKEN_DONEINPROC:
+		case TOKEN_DONEPROC:
 			handle_done(conn);
+			break;
+		case TOKEN_RETURNSTATUS:
+			ret = buf_get32_le(conn);
+			if (ret != 0) {
+				tds_debug(0, "RPC returned %d\n", ret);
+			}
 			break;
 		case TOKEN_ROW:
 			handle_row(conn);
-			break;
-		case TOKEN_DONEINPROC:
-			handle_done(conn);
 			break;
 		default:
 			tds_debug(0, "unknown type %d\n", token_type);
