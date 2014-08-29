@@ -177,7 +177,6 @@ load_config_file(FILE *fp)
 int
 read_config(const char *file)
 {
-	char configfn[256];
 	FILE *fp = NULL;
 
 	if (file == NULL) {
@@ -189,7 +188,7 @@ read_config(const char *file)
 		fprintf(stderr, "Couldn't open %s. No config found\n", file);
 		return 0;
 	}
-	fprintf(stdout, "Using config file %s.\n", configfn);
+	fprintf(stdout, "Using config file %s.\n", file);
 
 	load_config_file(fp);
 	fclose(fp);
