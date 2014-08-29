@@ -342,3 +342,21 @@ tds_connect(struct connection *conn, void (*on_connect)(struct connection *))
 
 	return r;
 }
+
+struct connection *
+tds_connection_alloc(void)
+{
+	struct connection *ret;
+
+	ret = calloc(1, sizeof(struct connection));
+	ret->buffer = malloc(65535);
+
+	return ret;
+}
+
+void
+tds_connection_free(struct connection *con)
+{
+	free(con->buffer);
+	free(con);
+}
