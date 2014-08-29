@@ -64,7 +64,7 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 
 	tds_debug(0, "%d bytes read\n", (int)nread);
 	buf->base[nread - 1] = '\0';
-	dump_hex(buf->base, nread);
+	dump_hex(1, buf->base, nread);
 	/* TODO: Handle */
 	if (buf->base[0] != 5) {
 		tds_debug(0, "invalid packet received\n");

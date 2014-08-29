@@ -51,7 +51,7 @@ ucs2_to_str(unsigned char *s, size_t slen, char *d, size_t dlen)
 }
 
 void
-dump_hex(void *vp, size_t len)
+dump_hex(int lvl, void *vp, size_t len)
 {
 	char linebuf[80];
 	int i;
@@ -81,14 +81,14 @@ dump_hex(void *vp, size_t len)
 
 		linebuf_dirty = 1;
 		if (!((i + 1) % 16)) {
-			tds_debug(0, "%s\n", linebuf);
+			tds_debug(lvl, "%s\n", linebuf);
 			memset(linebuf, ' ', sizeof(linebuf));
 			linebuf[70] = '\0';
 			linebuf_dirty = 0;
 		}
 	}
 	if (linebuf_dirty == 1)
-		tds_debug(0, "%s\n", linebuf);
+		tds_debug(lvl, "%s\n", linebuf);
 }
 
 /**

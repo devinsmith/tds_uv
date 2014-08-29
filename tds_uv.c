@@ -155,7 +155,7 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 	buf_set_hdr(pkt);
 
 	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
-	dump_hex(pkt->base, pkt->len);
+	dump_hex(0, pkt->base, pkt->len);
 
 	uv_write(write_req, tcp, pkt, 1, after_write);
 }

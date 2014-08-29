@@ -116,7 +116,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	/* Write header */
 	buf_set_hdr(pkt);
 
-	dump_hex(pkt->base, pkt->len);
+	dump_hex(0, pkt->base, pkt->len);
 
 	uv_write(write_req, stream, pkt, 1, after_write);
 }

@@ -17,7 +17,7 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
-void dump_hex(void *vp, size_t len);
+void dump_hex(int lvl, void *vp, size_t len);
 unsigned char *str_to_ucs2(const char *s, unsigned char *d, size_t len);
 void ucs2_to_str(unsigned char *s, size_t slen, char *d, size_t dlen);
 

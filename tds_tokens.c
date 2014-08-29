@@ -298,7 +298,7 @@ handle_tokens(struct connection *conn, size_t nread)
 {
 	uint32_t ret;
 
-	dump_hex(conn->buffer, nread);
+	dump_hex(0, conn->buffer, nread);
 
 	/* Start at 0x08 */
 	conn->b_offset = 0x08;
@@ -369,7 +369,7 @@ tds_query(struct connection *conn, const char *sql)
 
 	/* Write header */
 	buf_set_hdr(pkt);
-	dump_hex(pkt->base, pkt->len);
+	dump_hex(0, pkt->base, pkt->len);
 
 	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
 }
@@ -420,6 +420,6 @@ exec_sp(struct connection *conn, const char *proc, struct db_param *params,
 	    sizeof(unicode_buf)), len * 2);
 	}
 	buf_set_hdr(pkt);
-	dump_hex(pkt->base, pkt->len);
+	dump_hex(0, pkt->base, pkt->len);
 	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
 }
