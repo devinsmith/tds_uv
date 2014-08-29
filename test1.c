@@ -23,6 +23,10 @@
 #include "tds_tokens.h"
 #include "tds_uv.h"
 
+#include "conf.h"
+
+extern struct prog_cfg *active_cfg;
+
 static void
 on_done(struct connection *conn, int row_count)
 {
@@ -38,83 +42,44 @@ server_connected(struct connection *conn)
 	tds_query(conn, "USE [test]");
 }
 
-static void
-args_required(char *arg)
-{
-	fprintf(stderr, "option '%s' expects a parameter.\n", arg);
-	exit(1);
-}
-
 int
 main(int argc, char *argv[])
 {
-	struct connection conn;
+	struct connection *conn;
 	char *p;
 
-	memset(&conn, 0, sizeof(struct connection));
-	conn.buffer = malloc(65535);
-
-	/* Parse arguments */
-	while (--argc) {
-		p = *++argv;
-
-		if (!strcmp(p, "-s")) {
-			if (!argv[1]) {
-				args_required(p);
-			}
-			conn.server = *++argv, --argc;
-		} else if (!strcmp(p, "-P")) {
-			if (!argv[1]) {
-				args_required(p);
-			}
-			conn.port = atoi(*++argv), --argc;
-		} else if (!strcmp(p, "-p")) {
-			if (!argv[1]) {
-				args_required(p);
-			}
-			conn.password = *++argv, --argc;
-		} else if (!strcmp(p, "-u")) {
-			if (!argv[1]) {
-				args_required(p);
-			}
-			conn.user = *++argv, --argc;
-		}
+	/* Creates active_cfg */
+	if (read_config("test1.conf") == 0) {
+		fprintf(stderr, "This program requires a configuration file.\n");
+		exit(1);
 	}
 
-	if (!conn.server) {
-		fprintf(stderr, "Please specify a hostname\n");
-		return 1;
-	}
+	/* Create a single TDS connection */
+	conn = tds_connection_alloc();
+	conn->server = active_cfg->sql_server;
+	conn->port = active_cfg->sql_port;
+	conn->password = active_cfg->sql_password;
+	conn->user = active_cfg->sql_user;
 
-	if (!conn.user) {
-		fprintf(stderr, "A username is required.\n");
-		return 1;
-	}
-
-	if (!conn.password) {
-		fprintf(stderr, "A password is required.\n");
-		return 1;
-	}
-
-	if ((p = strchr(conn.server, '\\'))) {
+	if ((p = strchr(active_cfg->sql_server, '\\'))) {
 		fprintf(stderr, "detecting instance\n");
-		conn.instance = p + 1;
+		conn->instance = p + 1;
 		*p = '\0';
-		fprintf(stderr, "instance: %s\n", conn.instance);
+		fprintf(stderr, "instance: %s\n", conn->instance);
 	}
 
 	tds_debug_init();
 	tds_debug_set_log_level(0);
 
-	conn.loop = uv_default_loop();
+	conn->loop = uv_default_loop();
 
-	if (tds_connect(&conn, server_connected) != 0) {
+	if (tds_connect(conn, server_connected) != 0) {
 		return 1;
 	}
 
 	signal(SIGPIPE, SIG_IGN);
 
-	uv_run(conn.loop, UV_RUN_DEFAULT);
-	free(conn.buffer);
+	uv_run(conn->loop, UV_RUN_DEFAULT);
+	tds_connection_free(conn);
 	return 0;
 }
