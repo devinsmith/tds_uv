@@ -1,29 +1,40 @@
 # Makefile for libtdsuv
 
-.PHONY: all clean
+# Tools
+CC = gcc
+AR = ar
+RANLIB = ranlib
+CFLAGS = -Wall -g -O2
+LDFLAGS = -L/usr/local/lib -L.
 
-# Source files for the tdsuv test
-SRCS = sqlrp.c tds_buf.c tds_log.c tds_prelogin.c tds_tokens.c tds_uv.c utils.c
+CC += -pthread -I. -I/usr/local/include
+
+LIBTDSUV := libtdsuv.a
+
+TEST1 := test1
+
+# Object files for libtdsuv.a
 OBJS = sqlrp.o tds_buf.o tds_log.o tds_prelogin.o tds_tokens.o tds_uv.o utils.o
 
-CC = gcc
-INTERNAL_CFLAGS = -Wall -O2 -I/usr/local/include -pthread -I.
-CPPFLAGS += -MMD -MP -MT $@
-LDFLAGS = -L/usr/local/lib
+# test1 objects
+TEST_OBJS = test1.o
 
-EXE = tds_uv
-LIBS = -luv
+LIBS = -ltdsuv -luv
 
-all: $(EXE)
+all: $(TEST1)
 
-$(EXE): $(OBJS)
-	$(CC) $(INTERNAL_CFLAGS) -o $(EXE) $(OBJS) $(LDFLAGS) $(LIBS)
+$(TEST1): $(LIBTDSUV) $(TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(TEST_OBJS) $(LDFLAGS) $(LIBS)
+
+$(LIBTDSUV): $(OBJS)
+	$(AR) cr $@ $(OBJS)
+	$(RANLIB) $@
+
+$(OBJS): Makefile
 
 clean:
-	rm -f $(EXE) $(OBJS)
+	rm -f $(TEST1) $(LIBTDSUV) $(OBJS) $(TEST_OBJS)
 
-.c.o:
-	$(CC) $(INTERNAL_CFLAGS) $(CPPFLAGS) -o $@ -c $<
+#.c.o:
+#	$(CC) $(INTERNAL_CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-# Include automatically generated dependency files
--include $(wildcard *.d)
