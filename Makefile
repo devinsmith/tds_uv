@@ -18,7 +18,7 @@ OBJS = sqlrp.o tds_buf.o tds_log.o tds_prelogin.o tds_tokens.o tds_types.o \
     tds_uv.o utils.o
 
 # test1 objects
-TEST_OBJS = test1.o
+TEST_OBJS = test1.o conf.o
 
 LIBS = -ltdsuv -luv
 
