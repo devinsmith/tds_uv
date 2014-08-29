@@ -43,11 +43,18 @@ struct tds_result {
 struct connection {
 	uv_loop_t *loop;
 	char ip_addr[16];
-	char *server;
+
+	/* connection properties */
+	char server[256];
 	unsigned short port;
-	char *instance;
-	char *user;
-	char *password;
+	char instance[16];
+	char user[256];
+	char password[256];
+	char database[256];
+
+	int need_connect;
+	int need_use;
+
 	int stage;
 
 	uv_stream_t *tcp_handle;
@@ -91,6 +98,12 @@ int tds_connect(struct connection *conn, void (*on_connect)(struct connection *)
 
 struct connection *tds_connection_alloc(void);
 void tds_connection_free(struct connection *con);
+
+void tds_set_sql_server(struct connection *conn, const char *dbserver);
+void tds_set_password(struct connection *conn, const char *password);
+void tds_set_username(struct connection *conn, const char *username);
+void tds_set_dbname(struct connection *conn, const char *dbname);
+void tds_set_port(struct connection *conn, unsigned short port);
 
 #endif /* __TDS_UV_H__ */
 

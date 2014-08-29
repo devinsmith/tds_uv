@@ -350,6 +350,8 @@ tds_connection_alloc(void)
 
 	ret = calloc(1, sizeof(struct connection));
 	ret->buffer = malloc(65535);
+	ret->need_connect = 1;
+	ret->need_use = 1;
 
 	return ret;
 }
@@ -359,4 +361,69 @@ tds_connection_free(struct connection *con)
 {
 	free(con->buffer);
 	free(con);
+}
+
+void
+tds_set_password(struct connection *conn, const char *password)
+{
+	if (strcmp(conn->password, password) != 0) {
+		conn->need_connect = 1;
+		conn->need_use = 1;
+		snprintf(conn->password, sizeof(conn->password), "%s", password);
+	}
+}
+
+void
+tds_set_username(struct connection *conn, const char *username)
+{
+	if (strcmp(conn->user, username) != 0) {
+		conn->need_connect = 1;
+		conn->need_use = 1;
+		snprintf(conn->user, sizeof(conn->user), "%s", username);
+	}
+}
+
+void
+tds_set_sql_server(struct connection *conn, const char *dbserver)
+{
+	char tmp[256];
+	char *p;
+
+	/* Extract instance */
+	snprintf(tmp, sizeof(tmp), dbserver);
+	if ((p = strchr(tmp, '\\')) != NULL) {
+		*p = '\0';
+
+		if (strcmp(conn->instance, p + 1) != 0) {
+			conn->need_connect = 1;
+			conn->need_use = 1;
+			snprintf(conn->instance, sizeof(conn->instance), "%s", p + 1);
+		}
+	}
+
+	if (strcmp(conn->server, tmp) != 0) {
+		conn->need_connect = 1;
+		conn->need_use = 1;
+
+		snprintf(conn->server, sizeof(conn->server), "%s", tmp);
+	}
+}
+
+void
+tds_set_dbname(struct connection *conn, const char *dbname)
+{
+	if (strcmp(conn->database, dbname)) {
+		conn->need_use = 1;
+		snprintf(conn->database, sizeof(conn->database), "%s", dbname);
+	}
+}
+
+void
+tds_set_port(struct connection *conn, unsigned short port)
+{
+	if (port != conn->port) {
+		conn->port = port;
+		conn->need_connect = 1;
+		conn->need_use = 1;
+	}
 }

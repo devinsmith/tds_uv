@@ -46,7 +46,6 @@ int
 main(int argc, char *argv[])
 {
 	struct connection *conn;
-	char *p;
 
 	/* Creates active_cfg */
 	if (read_config("test1.conf") == 0) {
@@ -56,17 +55,11 @@ main(int argc, char *argv[])
 
 	/* Create a single TDS connection */
 	conn = tds_connection_alloc();
-	conn->server = active_cfg->sql_server;
-	conn->port = active_cfg->sql_port;
-	conn->password = active_cfg->sql_password;
-	conn->user = active_cfg->sql_user;
-
-	if ((p = strchr(active_cfg->sql_server, '\\'))) {
-		fprintf(stderr, "detecting instance\n");
-		conn->instance = p + 1;
-		*p = '\0';
-		fprintf(stderr, "instance: %s\n", conn->instance);
-	}
+	tds_set_sql_server(conn, active_cfg->sql_server);
+	tds_set_port(conn, active_cfg->sql_port);
+	tds_set_username(conn, active_cfg->sql_user);
+	tds_set_password(conn, active_cfg->sql_password);
+	tds_set_dbname(conn, "test");
 
 	tds_debug_init();
 	tds_debug_set_log_level(0);
