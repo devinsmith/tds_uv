@@ -14,15 +14,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __TDS_CONSTANTS_H__
-#define __TDS_CONSTANTS_H__
+#ifndef __TDS_TYPES_H__
+#define __TDS_TYPES_H__
 
-/* TDS packet types (defined in 2.2.3.1.1) */
-#define TDS_SQL_BATCH 0x01
-#define TDS_RPC 0x03
-#define TDS_RESULT 0x04
-#define TDS_LOGIN 0x10
-#define TDS_PRELOGIN 0x12
+/* The TDS protocol column/row types */
+#define TDS_INT4 0x38
+#define TDS_DATETIME 0x3D
+#define TDS_BITN 0x68
+#define TDS_BIGVARCHAR 0xA7
 
-#endif /* __TDS_CONSTANTS_H__ */
+int tds_get_size_by_type(int type);
+
+#endif /* __TDS_TYPES_H__ */
 

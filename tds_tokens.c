@@ -22,8 +22,10 @@
 #include "tds_buf.h"
 #include "tds_log.h"
 #include "tds_tokens.h"
+#include "tds_types.h"
 #include "utils.h"
 
+#define TOKEN_RETURNSTATUS 0x79
 #define TOKEN_COLMETADATA 0x81
 #define TOKEN_ERROR 0xaa
 #define TOKEN_INFO 0xab
@@ -31,6 +33,8 @@
 #define TOKEN_ROW 0xd1
 #define TOKEN_ENVCHANGE 0xe3
 #define TOKEN_DONE 0xfd
+#define TOKEN_DONEPROC 0xfe
+#define TOKEN_DONEINPROC 0xff
 
 enum {
 	EC_DATABASE = 1,
@@ -44,20 +48,22 @@ static void handle_message(struct connection *conn, const char *type, uint16_t t
 static void handle_loginack(struct connection *conn, uint16_t token_len);
 static void handle_done(struct connection *conn);
 
-/* Token: DONE (2.2.7.4) */
+/* Token: DONE (2.2.7.5) */
 static void
 handle_done(struct connection *conn)
 {
 	uint16_t status;
-	uint16_t current_command;
 	uint32_t row_count;
 
 	status = buf_get16_le(conn);
-	current_command = buf_get16_le(conn);
-	row_count = buf_get32_le(conn);
-	tds_debug(0, "Done (CurCmd: %d)\n", current_command);
-	tds_debug(0, "Done, status %d, rows affected\n", status, row_count);
+	/* The next unsigned short (16 bits) contains a token of the current
+	 * SQL statement, but we don't use it yet. */
+	buf_get16_le(conn);
 
+	row_count = buf_get32_le(conn);
+	tds_debug(0, "Done, status %d, %d rows affected\n", status, row_count);
+
+	/* Check if this is the final done before calling any callbacks */
 	if (status == 0) {
 		if (conn->stage == TDS_LOGGING_IN) {
 			conn->stage = TDS_LOGGED_IN;
@@ -213,13 +219,31 @@ process_colmetadata(struct connection *conn)
 	conn->result.cols = calloc(total_cols, sizeof(struct tds_column));
 
 	for (i = 0; i < total_cols; i++) {
-		uint32_t col_len;
+		int column_len_size;
+		uint32_t column_len;
 		user_type = buf_get16_le(conn);
 		flags = buf_get16_le(conn);
 		col_type = buf_get8(conn);
-		conn->result.cols[i].col_type = col_type;
-		if (col_type == TDS_BIGVARCHAR_TYPE) {
-			col_len = buf_get16_le(conn);
+		conn->result.cols[i].type = col_type;
+
+		/* The next bytes of the packet determine how many bytes are used
+		 * to represent the size of the length of the column. */
+		column_len = 0;
+		column_len_size = tds_get_size_by_type(col_type);
+		if (column_len_size == 1) {
+			column_len = buf_get8(conn);
+		} else if (column_len_size == 2) {
+			column_len = buf_get16_le(conn);
+		} else if (column_len_size == 4) {
+			column_len = buf_get32_le(conn);
+		} else if (column_len_size == -1) {
+			tds_debug(0, "Length for column type %d is unknown.\n", col_type);
+			return;
+		}
+
+		conn->result.cols[i].len = column_len;
+
+		if (col_type == TDS_BIGVARCHAR) {
 			/* XXX: actually handle collation */
 			buf_getraw(conn, 5);
 		}
@@ -240,22 +264,30 @@ handle_row(struct connection *conn)
 {
 	unsigned int i;
 	uint32_t len;
+	uint8_t bit;
 
 	tds_debug(0, "Row\n");
 	for (i = 0; i < conn->result.ncols; i++) {
-		switch (conn->result.cols[i].col_type) {
-		case TDS_INT4_TYPE:
+		switch (conn->result.cols[i].type) {
+		case TDS_BITN:
+			len = buf_get8(conn);
+			if (len == 1) {
+				bit = buf_get8(conn);
+				tds_debug(0, "bit = %d\n", bit);
+			}
+			break;
+		case TDS_INT4:
 			buf_get32_le(conn);
 			break;
-		case TDS_DATETIME_TYPE:
+		case TDS_DATETIME:
 			buf_getraw(conn, 8);
 			break;
-		case TDS_BIGVARCHAR_TYPE:
+		case TDS_BIGVARCHAR:
 			len = buf_get16_le(conn);
 			buf_getraw(conn, len);
 			break;
 		default:
-			tds_debug(0, "Unknown type!\n");
+			tds_debug(0, "Unknown type! (%d)\n", conn->result.cols[i].type);
 			break;
 		}
 	}
@@ -264,6 +296,8 @@ handle_row(struct connection *conn)
 void
 handle_tokens(struct connection *conn, size_t nread)
 {
+	uint32_t ret;
+
 	dump_hex(conn->buffer, nread);
 
 	/* Start at 0x08 */
@@ -297,7 +331,15 @@ handle_tokens(struct connection *conn, size_t nread)
 			handle_loginack(conn, token_len);
 			break;
 		case TOKEN_DONE:
+		case TOKEN_DONEINPROC:
+		case TOKEN_DONEPROC:
 			handle_done(conn);
+			break;
+		case TOKEN_RETURNSTATUS:
+			ret = buf_get32_le(conn);
+			if (ret != 0) {
+				tds_debug(0, "RPC returned %d\n", ret);
+			}
 			break;
 		case TOKEN_ROW:
 			handle_row(conn);
