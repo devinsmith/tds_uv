@@ -298,11 +298,11 @@ handle_tokens(struct connection *conn, size_t nread)
 {
 	uint32_t ret;
 
-	dump_hex(0, conn->buffer, nread);
+	dump_hex(1, conn->buffer, nread);
 
 	/* Start at 0x08 */
 	conn->b_offset = 0x08;
-	tds_debug(0, "Type = 0x%02x\n", conn->buffer[conn->b_offset]);
+	tds_debug(2, "Type = 0x%02x\n", conn->buffer[conn->b_offset]);
 
 	while (conn->b_offset < nread) {
 		uint8_t token_type;

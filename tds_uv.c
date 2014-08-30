@@ -154,19 +154,20 @@ send_login(uv_stream_t *tcp, struct connection *conn)
 	/* Write header */
 	buf_set_hdr(pkt);
 
-	tds_debug(0, "pkt len: %d\n", (int)pkt->len);
-	dump_hex(0, pkt->base, pkt->len);
+	tds_debug(0, "> LOGIN packet (%d bytes)\n", (int)pkt->len);
+	dump_hex(1, pkt->base, pkt->len);
 
 	uv_write(write_req, tcp, pkt, 1, after_write);
 }
 
+/* For every message read off the wire we'll start here */
 static void
 tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 {
 	struct connection *conn = tcp->data;
 	uint16_t pkt_len;
 
-	tds_debug(0, "nread = %d\n", nread);
+	tds_debug(1, "+PACKET (bytes: %d)\n", nread);
 	if (nread < 0) {
 		if (nread != UV__EOF) {
 			tds_debug(0, "tds_on_read port read error: %d\n", nread);
@@ -212,12 +213,13 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	/* Full packet, reset index */
 	conn->b_offset = 0;
 
-	tds_debug(0, "Stage: %d\n", conn->stage);
 
 	if (conn->stage == TDS_CONNECTED) {
+		tds_debug(0, "+PRELOGIN response (TODO)\n"); 
 		/* XXX: Process prelogin packet */
 		send_login(tcp, conn);
 	} else {
+		tds_debug(0, "Stage: %d\n", conn->stage);
 		handle_tokens(conn, nread);
 	}
 	conn->b_offset = 0;
@@ -251,7 +253,7 @@ on_connect(uv_connect_t *req, int status)
 		return;
 	}
 
-	tds_debug(0, "Connected!\n");
+	tds_debug(0, "> Connected!\n");
 	conn->stage = TDS_CONNECTED;
 	send_prelogin(stream, conn);
 
@@ -281,6 +283,7 @@ tds_connect_sa(struct connection *conn, const struct sockaddr *addr)
 	uv_tcp_init(conn->loop, socket);
 	conn->stage = TDS_CONNECTING;
 	connect_req->data = conn;
+	tds_debug(0, "> Connecting...\n");
 	uv_tcp_connect(connect_req, socket, addr, on_connect);
 }
 
@@ -297,14 +300,12 @@ on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 
 	uv_ip4_name((struct sockaddr_in *)res->ai_addr, conn->ip_addr,
 	    sizeof(conn->ip_addr));
-	tds_debug(0, "%s\n", conn->ip_addr);
 
-	/* At this point we should have an IP address for our hostname, but
-	 * we may not have a port. */
+	/* At this point we should have an IP address (stored in conn->ip_addr) for
+	 * our hostname, but we may not have a port. */
 	if (conn->port > 0) {
 		tds_connect_sa(conn, (struct sockaddr *)res->ai_addr);
 	} else {
-		tds_debug(0, "no port! Need to detect.\n");
 		sqlrp_detect_port(conn->loop, conn);
 	}
 

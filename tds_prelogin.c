@@ -87,7 +87,7 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	}
 
 	/* TOKEN 0 */
-	/* UL_VERSION:
+	/* UL_VERSION: represented in network byte order (big-endian)
 	 * Major version: 1 byte
 	 * Minor version: 1 byte
 	 * Build Number: 2 bytes */
@@ -116,8 +116,9 @@ send_prelogin(uv_stream_t *stream, struct connection *conn)
 	/* Write header */
 	buf_set_hdr(pkt);
 
-	dump_hex(0, pkt->base, pkt->len);
+	dump_hex(1, pkt->base, pkt->len);
 
+	tds_debug(0, "> Sending prelogin token...\n");
 	uv_write(write_req, stream, pkt, 1, after_write);
 }
 

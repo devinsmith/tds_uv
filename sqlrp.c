@@ -62,7 +62,6 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 		return;
 	}
 
-	tds_debug(0, "%d bytes read\n", (int)nread);
 	buf->base[nread - 1] = '\0';
 	dump_hex(1, buf->base, nread);
 	/* TODO: Handle */
@@ -70,7 +69,6 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 		tds_debug(0, "invalid packet received\n");
 		goto done;
 	}
-	tds_debug(0, "%s\n", conn->instance);
 
 	p = buf->base + 3; /* Skip packet type + length */
 	while (*p) {
@@ -106,7 +104,8 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	if (instance_found && port_found) {
 		struct sockaddr_in addr;
 		conn->port = l;
-		tds_debug(0, "Port = %d\n", conn->port);
+		tds_debug(0, "+SQLRP: %s is listening on TCP port %d.\n", conn->instance,
+		    conn->port);
 		uv_ip4_addr(conn->ip_addr, conn->port, &addr);
 		tds_connect_sa(conn, (struct sockaddr *)&addr);
 	}
@@ -152,7 +151,7 @@ sqlrp_detect_port(uv_loop_t *loop, struct connection *conn)
 	send_socket->data = conn;
 
 	uv_udp_init(loop, send_socket);
-	tds_debug(0, "Sending to %s:%d\n", conn->ip_addr, SQLRP_PORT);
+	tds_debug(0, "> Detecting TCP/IP port (SQLRP), UDP request to %s:%d\n", conn->ip_addr, SQLRP_PORT);
 
 	msg = calloc(128, 1);
 	msg[0] = CLNT_UCAST_INST;
