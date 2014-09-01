@@ -87,7 +87,7 @@ struct db_param {
 #define TDS_LOGGING_IN   4
 #define TDS_LOGGED_IN    5
 #define TDS_IDLE         6
-#define TDS_QUERY        7
+#define TDS_BUSY         7
 
 /* A generic UV eventful allocation function */
 void gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf);

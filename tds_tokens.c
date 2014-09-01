@@ -67,9 +67,8 @@ handle_done(struct connection *conn)
 	if (status == 0) {
 		if (conn->stage == TDS_LOGGING_IN) {
 			conn->stage = TDS_LOGGED_IN;
-		} else if (conn->stage == TDS_QUERY) {
-			if (conn->on_done)
-				conn->on_done(conn, row_count);
+		} else if (conn->stage == TDS_BUSY) {
+			conn->stage = TDS_IDLE;
 		}
 	}
 
@@ -312,7 +311,7 @@ handle_tokens(struct connection *conn, size_t nread)
 		switch (token_type) {
 		case TOKEN_COLMETADATA:
 			process_colmetadata(conn);
-			conn->stage = TDS_QUERY;
+			conn->stage = TDS_BUSY;
 			break;
 		case TOKEN_ENVCHANGE:
 			token_len = buf_get16_le(conn);
@@ -359,7 +358,8 @@ tds_query(struct connection *conn, const char *sql)
 	unsigned char unicode_buf[1024];
 	size_t sql_len;
 
-	conn->stage = TDS_QUERY;
+	/* Indicate that the connection is now busy */
+	conn->stage = TDS_BUSY;
 
 	sql_len = strlen(sql) * 2;
 	buf_tds_init(pkt, sql_len, TDS_SQL_BATCH, TDS_EOM);
