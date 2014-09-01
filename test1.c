@@ -28,7 +28,7 @@
 extern struct prog_cfg *active_cfg;
 
 static void
-on_done(struct connection *conn, int row_count)
+on_done(struct connection *conn)
 {
 	tds_query(conn, "SELECT TOP 10 * FROM coders");
 }
@@ -65,6 +65,7 @@ main(int argc, char *argv[])
 	tds_debug_set_log_level(0);
 
 	conn->loop = uv_default_loop();
+	conn->on_ready = on_done;
 
 	if (tds_connect(conn, server_connected) != 0) {
 		return 1;

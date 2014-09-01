@@ -224,9 +224,19 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	}
 	conn->b_offset = 0;
 
+
+	if (conn->stage == TDS_LOGGED_IN && conn->need_use) {
+		char use_stmt[300];
+		snprintf(use_stmt, sizeof(use_stmt), "USE [%s]", conn->database);
+		tds_query(conn, use_stmt);
+	}
+
 	if (conn->stage == TDS_LOGGED_IN) {
 		conn->stage = TDS_IDLE;
-		conn->on_connect(conn);
+	}
+	if (conn->stage == TDS_IDLE) {
+		if (conn->on_ready)
+			conn->on_ready(conn);
 	}
 }
 
@@ -321,8 +331,6 @@ tds_connect(struct connection *conn, void (*on_connect)(struct connection *))
 	uv_getaddrinfo_t *resolver;
 	char port[sizeof("65535")];
 	char *pport = NULL;
-
-	conn->on_connect = on_connect;
 
 	/* Allocate a new resolver, will be freed in "on_resolved" */
 	resolver = malloc(sizeof(uv_getaddrinfo_t));

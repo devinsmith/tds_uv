@@ -63,10 +63,9 @@ struct connection {
 	unsigned short b_offset;
 	struct tds_env env;
 
-	void (*on_connect)(struct connection *);
-	void (*on_done)(struct connection *, int row_count);
+	void (*on_ready)(struct connection *);
 
-	/* Stores the current result if any */
+	/* Stores the current result, if any. */
 	struct tds_result result;
 };
 
