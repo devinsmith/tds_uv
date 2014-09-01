@@ -31,15 +31,8 @@ static void
 on_done(struct connection *conn)
 {
 	tds_query(conn, "SELECT TOP 10 * FROM coders");
-}
-
-static void
-server_connected(struct connection *conn)
-{
-	tds_debug(0, "Connected (callback)\n");
-
-	conn->on_done = on_done;
-	tds_query(conn, "USE [test]");
+	/* Kill future callbacks */
+	conn->on_done = NULL;
 }
 
 int
