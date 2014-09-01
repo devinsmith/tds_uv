@@ -67,7 +67,7 @@ main(int argc, char *argv[])
 	conn->loop = uv_default_loop();
 	conn->on_ready = on_done;
 
-	if (tds_connect(conn, server_connected) != 0) {
+	if (tds_connect(conn) != 0) {
 		return 1;
 	}
 

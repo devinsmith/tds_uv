@@ -93,7 +93,7 @@ void gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf);
 void after_write(uv_write_t *req, int status);
 
 void tds_connect_sa(struct connection *conn, const struct sockaddr *addr);
-int tds_connect(struct connection *conn, void (*on_connect)(struct connection *));
+int tds_connect(struct connection *conn);
 
 struct connection *tds_connection_alloc(void);
 void tds_connection_free(struct connection *con);

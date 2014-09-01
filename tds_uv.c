@@ -325,7 +325,7 @@ cleanup:
 }
 
 int
-tds_connect(struct connection *conn, void (*on_connect)(struct connection *))
+tds_connect(struct connection *conn)
 {
 	int r;
 	uv_getaddrinfo_t *resolver;
