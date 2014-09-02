@@ -378,7 +378,7 @@ tds_query(struct connection *conn, const char *sql)
 
 	/* Write header */
 	buf_set_hdr(pkt);
-	dump_hex(0, pkt->base, pkt->len);
+	dump_hex(1, pkt->base, pkt->len);
 
 	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
 }
