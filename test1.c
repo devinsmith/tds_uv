@@ -32,7 +32,7 @@ on_done(struct connection *conn)
 {
 	tds_query(conn, "SELECT TOP 10 * FROM coders");
 	/* Kill future callbacks */
-	conn->on_done = NULL;
+	conn->on_ready = NULL;
 }
 
 int
@@ -64,7 +64,9 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
+#ifndef WIN32
 	signal(SIGPIPE, SIG_IGN);
+#endif
 
 	uv_run(conn->loop, UV_RUN_DEFAULT);
 	tds_connection_free(conn);

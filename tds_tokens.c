@@ -120,7 +120,7 @@ handle_message(struct connection *conn, const char *type, uint16_t token_len)
 static void
 handle_loginack(struct connection *conn, uint16_t token_len)
 {
-	uint8_t interface;
+	uint8_t interface_type;
 	uint32_t tds_version;
 	uint8_t len;
 	char prog_name[256];
@@ -128,7 +128,7 @@ handle_loginack(struct connection *conn, uint16_t token_len)
 	uint16_t build;
 
 	tds_debug(0, "+LOGINACK: %d bytes\n", token_len);
-	interface = buf_get8(conn);
+	interface_type = buf_get8(conn);
 	tds_version = buf_get32_le(conn);
 	tds_debug(0, "Version: %x\n", tds_version);
 	len = buf_get8(conn) * 2;
