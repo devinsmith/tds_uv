@@ -145,7 +145,6 @@ static void
 handle_envchange(struct connection *conn, uint16_t token_len)
 {
 	uint8_t change_type;
-	char *dest;
 	char old[256];
 	uint8_t len;
 
@@ -161,36 +160,46 @@ handle_envchange(struct connection *conn, uint16_t token_len)
 		/* TODO What to do with old collation info? */
 		len = buf_get8(conn);
 		memcpy(o_col, buf_getraw(conn, len), len);
-		return;
-	}
+	} else if (change_type == EC_DATABASE) {
+		free(conn->env.database);
 
-	if (change_type != EC_DATABASE && change_type != EC_LANGUAGE &&
-	    change_type != EC_PKTSIZE) {
+		len = buf_get8(conn) * 2;
+		conn->env.database = malloc(len + 1);
+		ucs2_to_str(buf_getraw(conn, len), len, conn->env.database, len);
+		conn->env.database[len] = '\0';
+
+		old[0] = '\0';
+		len = buf_get8(conn) * 2;
+		ucs2_to_str(buf_getraw(conn, len), len, old, sizeof(old));
+		tds_debug(1, "ENVCHANGE (EC_DATABASE): %s -> %s\n", old, conn->env.database);
+		if (strcmp(conn->env.database, conn->database) == 0)
+			conn->need_use = 0;
+
+	} else if (change_type == EC_LANGUAGE) {
+		free(conn->env.language);
+
+		len = buf_get8(conn) * 2;
+		conn->env.language = malloc(len + 1);
+		ucs2_to_str(buf_getraw(conn, len), len, conn->env.language, len);
+		conn->env.language[len] = '\0';
+
+		old[0] = '\0';
+		len = buf_get8(conn) * 2;
+		ucs2_to_str(buf_getraw(conn, len), len, old, sizeof(old));
+		tds_debug(1, "ENVCHANGE (EC_LANGUAGE): %s -> %s\n", old, conn->env.language);
+	} else if (change_type == EC_PKTSIZE) {
+		len = buf_get8(conn) * 2;
+		ucs2_to_str(buf_getraw(conn, len), len, old, len);
+		old[len] = '\0';
+		conn->env.packet_size = atoi(old);
+
+		old[0] = '\0';
+		len = buf_get8(conn) * 2;
+		ucs2_to_str(buf_getraw(conn, len), len, old, sizeof(old));
+		tds_debug(1, "ENVCHANGE (EC_PKTSIZE): %s -> %d\n", old, conn->env.packet_size);
+	} else {
 		tds_debug(0, "+ENVCHANGE: (change type unknown: %d) %d bytes\n",
 		    change_type, token_len);
-		return;
-	}
-
-	if (change_type == EC_DATABASE) {
-		dest = conn->env.database;
-	} else if (change_type == EC_LANGUAGE) {
-		dest = conn->env.language;
-	}
-
-	len = buf_get8(conn) * 2;
-	dest = malloc(len + 1);
-	ucs2_to_str(buf_getraw(conn, len), len, dest, len);
-	dest[len] = '\0';
-
-	old[0] = '\0';
-	len = buf_get8(conn) * 2;
-	ucs2_to_str(buf_getraw(conn, len), len, old, sizeof(old));
-	tds_debug(1, "ENVCHANGE (change type %d): %s -> %s\n", change_type, old,
-	    dest);
-
-	if (change_type == EC_PKTSIZE) {
-		conn->env.packet_size = atoi(dest);
-		free(dest);
 	}
 }
 
