@@ -17,6 +17,8 @@
 #ifndef __TDS_UV_H__
 #define __TDS_UV_H__
 
+#include <sys/queue.h>
+
 #include <uv.h>
 
 struct tds_env {
@@ -29,13 +31,37 @@ struct tds_env {
 
 #define TDS_COLUMN_MAX_LEN 256
 
+enum tds_datatype {
+	NULL_TYPE,
+	STRING_TYPE,
+	INT4_TYPE
+};
+
+union tds_data {
+	char *s;
+	int i;
+};
+
+struct tds_dbval {
+	enum tds_datatype type;
+	union tds_data data;
+};
+
 struct tds_column {
 	char name[TDS_COLUMN_MAX_LEN];
 	int type;
 	int len;
 };
 
+struct tds_row {
+	struct tds_dbval *columns;
+	TAILQ_ENTRY(tds_row) dbrows;
+};
+
 struct tds_result {
+	struct tds_row *tqh_first;
+	struct tds_row **tqh_last;
+	int row_count;
 	int ncols;
 	struct tds_column *cols;
 };

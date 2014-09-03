@@ -7,7 +7,7 @@ RANLIB = ranlib
 CFLAGS = -Wall -g -O2
 LDFLAGS = -Ld:\libs\64\libuv -L.
 
-CC += -I. -I../OpenSource/libuv/include
+CC += -I. -I../OpenSource/libuv/include -Iopenbsd-compat
 
 LIBTDSUV := libtdsuv.a
 
