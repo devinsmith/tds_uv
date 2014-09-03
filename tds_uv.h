@@ -65,6 +65,9 @@ struct connection {
 
 	void (*on_ready)(struct connection *);
 
+	/* Last SQL query, saved in the case of errors */
+	char *sql;
+
 	/* Stores the current result, if any. */
 	struct tds_result result;
 };

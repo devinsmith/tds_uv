@@ -233,6 +233,8 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		conn->stage = TDS_IDLE;
 	}
 	if (conn->stage == TDS_IDLE) {
+		if (conn->sql)
+			tds_query(conn, conn->sql);
 		if (conn->on_ready)
 			conn->on_ready(conn);
 	}

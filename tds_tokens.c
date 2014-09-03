@@ -69,6 +69,7 @@ handle_done(struct connection *conn)
 			conn->stage = TDS_LOGGED_IN;
 		} else if (conn->stage == TDS_BUSY) {
 			conn->stage = TDS_IDLE;
+			free(conn->sql);
 		}
 	}
 
@@ -366,6 +367,33 @@ tds_query(struct connection *conn, const char *sql)
 	uv_buf_t *pkt = (uv_buf_t *)(write_req + 1);
 	unsigned char unicode_buf[1024];
 	size_t sql_len;
+
+	/* Before issuing a query verify if this connection is connected. If not
+	 * we should connect to the DB first */
+	if (conn->stage == TDS_DISCONNECTED || conn->need_connect) {
+		/* Save our query first */
+		free(conn->sql);
+		conn->sql = strdup(sql);
+		if (conn->stage != TDS_DISCONNECTED) {
+			/* Disconnect first */
+			tds_disconnect(conn, 1);
+		} else {
+			tds_connect(conn);
+		}
+		return;
+	}
+
+	/* No query can be made since our stage is not idle */
+	if (conn->stage != TDS_IDLE) {
+		return;
+	}
+
+	if (conn->need_use) {
+		/* Do use */
+		free(conn->sql);
+		conn->sql = strdup(sql);
+		tds_use_db(conn, conn->database);
+	}
 
 	/* Indicate that the connection is now busy */
 	conn->stage = TDS_BUSY;
