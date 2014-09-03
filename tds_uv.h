@@ -94,6 +94,7 @@ void after_write(uv_write_t *req, int status);
 
 void tds_connect_sa(struct connection *conn, const struct sockaddr *addr);
 int tds_connect(struct connection *conn);
+void tds_use_db(struct connection *conn, const char *db);
 
 struct connection *tds_connection_alloc(void);
 void tds_connection_free(struct connection *con);

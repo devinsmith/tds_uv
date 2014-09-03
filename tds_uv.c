@@ -226,9 +226,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 
 
 	if (conn->stage == TDS_LOGGED_IN && conn->need_use) {
-		char use_stmt[300];
-		snprintf(use_stmt, sizeof(use_stmt), "USE [%s]", conn->database);
-		tds_query(conn, use_stmt);
+		tds_use_db(conn, conn->database);
 	}
 
 	if (conn->stage == TDS_LOGGED_IN) {
@@ -370,6 +368,14 @@ tds_connection_free(struct connection *con)
 {
 	free(con->buffer);
 	free(con);
+}
+
+void
+tds_use_db(struct connection *conn, const char *db)
+{
+	char use_stmt[300];
+	snprintf(use_stmt, sizeof(use_stmt), "USE [%s]", conn->database);
+	tds_query(conn, use_stmt);
 }
 
 void
