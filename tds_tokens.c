@@ -66,7 +66,8 @@ handle_done(struct connection *conn)
 	/* Check if this is the final done before calling any callbacks */
 	if (status == 0) {
 		if (conn->stage == TDS_LOGGING_IN) {
-			conn->stage = TDS_LOGGED_IN;
+			/* Login succeeded, move to IDLE state, ready for queries */
+			conn->stage = TDS_IDLE;
 		} else if (conn->stage == TDS_BUSY) {
 			conn->stage = TDS_IDLE;
 			free(conn->sql);
@@ -388,13 +389,14 @@ tds_query(struct connection *conn, const char *sql)
 		return;
 	}
 
-	if (conn->need_use) {
+	if (conn->need_use && conn->in_use != 1) {
 		/* Do use */
 		free(conn->sql);
 		conn->sql = strdup(sql);
 		tds_use_db(conn, conn->database);
 	}
 
+	conn->in_use = 0;
 	/* Indicate that the connection is now busy */
 	conn->stage = TDS_BUSY;
 

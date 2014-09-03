@@ -225,13 +225,10 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	conn->b_offset = 0;
 
 
-	if (conn->stage == TDS_LOGGED_IN && conn->need_use) {
+	if (conn->stage == TDS_IDLE && conn->need_use) {
 		tds_use_db(conn, conn->database);
 	}
 
-	if (conn->stage == TDS_LOGGED_IN) {
-		conn->stage = TDS_IDLE;
-	}
 	if (conn->stage == TDS_IDLE) {
 		if (conn->sql)
 			tds_query(conn, conn->sql);
@@ -265,6 +262,7 @@ on_connect(uv_connect_t *req, int status)
 
 	tds_debug(0, "> Connected!\n");
 	conn->stage = TDS_CONNECTED;
+	conn->need_connect = 0;
 	send_prelogin(stream, conn);
 
 	stream->data = conn;
@@ -376,6 +374,7 @@ void
 tds_use_db(struct connection *conn, const char *db)
 {
 	char use_stmt[300];
+	conn->in_use = 1;
 	snprintf(use_stmt, sizeof(use_stmt), "USE [%s]", conn->database);
 	tds_query(conn, use_stmt);
 }

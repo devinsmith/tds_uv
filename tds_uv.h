@@ -54,6 +54,7 @@ struct connection {
 
 	int need_connect;
 	int need_use;
+	int in_use;
 
 	int stage;
 
