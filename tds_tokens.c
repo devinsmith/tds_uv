@@ -44,7 +44,7 @@ enum {
 };
 
 static void handle_envchange(struct connection *conn, uint16_t token_len);
-static void handle_message(struct connection *conn, const char *type, uint16_t token_len);
+static void handle_message(struct connection *conn, int type, uint16_t token_len);
 static void handle_loginack(struct connection *conn, uint16_t token_len);
 static void handle_done(struct connection *conn);
 
@@ -77,7 +77,7 @@ handle_done(struct connection *conn)
 }
 
 static void
-handle_message(struct connection *conn, const char *type, uint16_t token_len)
+handle_message(struct connection *conn, int type, uint16_t token_len)
 {
 	uint32_t number;
 	uint8_t state;
@@ -92,7 +92,8 @@ handle_message(struct connection *conn, const char *type, uint16_t token_len)
 
 	*text = *server_name = *proc_name = 0;
 
-	tds_debug(0, "+%s: %d\n", type, token_len);
+	if (type == TOKEN_ERROR)
+		tds_debug(0, "+TOKEN_ERROR: %d\n", token_len);
 	number = buf_get32_le(conn);
 	state = buf_get8(conn);
 	severity = buf_get8(conn);
@@ -104,6 +105,7 @@ handle_message(struct connection *conn, const char *type, uint16_t token_len)
 	ucs2_to_str(buf_getraw(conn, pname_len), pname_len, proc_name, sizeof(proc_name));
 	line = buf_get16_le(conn);
 
+	/* Error handler */
 	if (number > 0 && severity > 0) {
 		tds_debug(0, "Msg %d, Level %d, State %d\n", number, severity, state);
 		tds_debug(0, "Server '%s'", server_name);
@@ -114,6 +116,7 @@ handle_message(struct connection *conn, const char *type, uint16_t token_len)
 		tds_debug(0, "%s\n", text);
 		exit(1);
 	} else {
+		/* Info handler */
 		tds_debug(0, "%s\n", text);
 	}
 }
@@ -330,11 +333,11 @@ handle_tokens(struct connection *conn, size_t nread)
 			break;
 		case TOKEN_ERROR:
 			token_len = buf_get16_le(conn);
-			handle_message(conn, "TOKEN_ERROR", token_len);
+			handle_message(conn, TOKEN_ERROR, token_len);
 			break;
 		case TOKEN_INFO:
 			token_len = buf_get16_le(conn);
-			handle_message(conn, "TOKEN_INFO", token_len);
+			handle_message(conn, TOKEN_INFO, token_len);
 			break;
 		case TOKEN_LOGINACK:
 			token_len = buf_get16_le(conn);
