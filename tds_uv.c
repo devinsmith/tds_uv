@@ -442,3 +442,23 @@ tds_set_port(struct connection *conn, unsigned short port)
 		conn->need_use = 1;
 	}
 }
+
+static void
+tds_reconnect(uv_handle_t *handle)
+{
+	tds_connect((struct connection *)handle->data);
+}
+
+int
+tds_disconnect(struct connection *conn, int reconnect)
+{
+	if (reconnect) {
+		uv_close((uv_handle_t*) conn->tcp_handle, tds_reconnect);
+	} else {
+		uv_close((uv_handle_t*) conn->tcp_handle, NULL);
+	}
+	conn->need_connect= 1;
+	conn->need_use = 1;
+	conn->stage = TDS_DISCONNECTED;
+	return 0;
+}
