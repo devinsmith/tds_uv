@@ -58,12 +58,16 @@ struct tds_row {
 	TAILQ_ENTRY(tds_row) dbrows;
 };
 
-struct tds_result {
+struct tds_rowlist {
 	struct tds_row *tqh_first;
 	struct tds_row **tqh_last;
-	int row_count;
+};
+
+struct tds_result {
 	int ncols;
+	int nrows;
 	struct tds_column *cols;
+	struct tds_rowlist row_list;
 };
 
 struct connection {

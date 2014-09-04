@@ -228,8 +228,12 @@ process_colmetadata(struct connection *conn)
 		return;
 	}
 
+	/* Free up previous result. */
+	free(conn->result.cols);
+
 	conn->result.ncols = total_cols;
 	conn->result.cols = calloc(total_cols, sizeof(struct tds_column));
+	TAILQ_INIT(&conn->result.row_list);
 
 	for (i = 0; i < total_cols; i++) {
 		int column_len_size;
@@ -278,6 +282,10 @@ handle_row(struct connection *conn)
 	unsigned int i;
 	uint32_t len;
 	uint8_t bit;
+	struct tds_row *row;
+
+	row = malloc(sizeof(struct tds_row));
+	row->columns = malloc(sizeof(struct tds_dbval) * conn->result.ncols);
 
 	tds_debug(0, "Row\n");
 	for (i = 0; i < conn->result.ncols; i++) {
@@ -286,24 +294,34 @@ handle_row(struct connection *conn)
 			len = buf_get8(conn);
 			if (len == 1) {
 				bit = buf_get8(conn);
-				tds_debug(0, "bit = %d\n", bit);
+				row->columns[i].type = INT4_TYPE;
+				row->columns[i].data.i = bit;
+			} else {
+				row->columns[i].type = NULL_TYPE;
 			}
 			break;
 		case TDS_INT4:
-			buf_get32_le(conn);
+			row->columns[i].type = INT4_TYPE;
+			row->columns[i].data.i = buf_get32_le(conn);
 			break;
 		case TDS_DATETIME:
+			dump_hex(0, conn->buffer, 8);
 			buf_getraw(conn, 8);
 			break;
 		case TDS_BIGVARCHAR:
 			len = buf_get16_le(conn);
-			buf_getraw(conn, len);
+			row->columns[i].type = STRING_TYPE;
+			row->columns[i].data.s = malloc(len + 1);
+			memcpy(row->columns[i].data.s, buf_getraw(conn, len), len);
+			row->columns[i].data.s[len] = '\0';
 			break;
 		default:
 			tds_debug(0, "Unknown type! (%d)\n", conn->result.cols[i].type);
 			break;
 		}
 	}
+	TAILQ_INSERT_TAIL(&conn->result.row_list, row, dbrows);
+	conn->result.nrows++;
 }
 
 void
