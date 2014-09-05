@@ -139,7 +139,7 @@ int tds_disconnect(struct connection *conn, int reconnect);
 void tds_use_db(struct connection *conn, const char *db);
 
 struct connection *tds_connection_alloc(void);
-void tds_connection_free(struct connection *con);
+void tds_connection_free(struct connection *conn);
 
 void tds_set_sql_server(struct connection *conn, const char *dbserver);
 void tds_set_password(struct connection *conn, const char *password);

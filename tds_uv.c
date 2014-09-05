@@ -366,10 +366,16 @@ tds_connection_alloc(void)
 }
 
 void
-tds_connection_free(struct connection *con)
+tds_connection_free(struct connection *conn)
 {
-	free(con->buffer);
-	free(con);
+	/* Free any stored query */
+	free(conn->sql);
+
+	/* Free results */
+	free(conn->result.cols);
+
+	free(conn->buffer);
+	free(conn);
 }
 
 void
