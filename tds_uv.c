@@ -368,11 +368,27 @@ tds_connection_alloc(void)
 void
 tds_connection_free(struct connection *conn)
 {
+	int i;
+	struct tds_row *row;
+
+	/* Free environment info */
+	free(conn->env.database);
+	free(conn->env.language);
+
 	/* Free any stored query */
 	free(conn->sql);
 
 	/* Free results */
 	free(conn->result.cols);
+	while ((row = TAILQ_FIRST(&conn->result.row_list))) {
+		TAILQ_REMOVE(&conn->result.row_list, row, dbrows);
+		for (i = 0; i < conn->result.ncols; i++) {
+			if (row->columns[i].type == STRING_TYPE)
+				free(row->columns[i].data.s);
+		}
+		free(row->columns);
+		free(row);
+	}
 
 	free(conn->buffer);
 	free(conn);
@@ -458,13 +474,19 @@ tds_reconnect(uv_handle_t *handle)
 	tds_connect((struct connection *)handle->data);
 }
 
+static void
+tds_close(uv_handle_t *handle)
+{
+	free(handle);
+}
+
 int
 tds_disconnect(struct connection *conn, int reconnect)
 {
 	if (reconnect) {
 		uv_close((uv_handle_t*) conn->tcp_handle, tds_reconnect);
 	} else {
-		uv_close((uv_handle_t*) conn->tcp_handle, NULL);
+		uv_close((uv_handle_t*) conn->tcp_handle, tds_close);
 	}
 	conn->need_connect= 1;
 	conn->need_use = 1;

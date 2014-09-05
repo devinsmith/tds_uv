@@ -218,6 +218,7 @@ process_colmetadata(struct connection *conn)
 	uint16_t total_cols;
 	unsigned int i;
 	uint8_t colname_len;
+	struct tds_row *row;
 
 	total_cols = buf_get16_le(conn);
 
@@ -230,6 +231,15 @@ process_colmetadata(struct connection *conn)
 
 	/* Free up previous result. */
 	free(conn->result.cols);
+	while ((row = TAILQ_FIRST(&conn->result.row_list))) {
+		TAILQ_REMOVE(&conn->result.row_list, row, dbrows);
+		for (i = 0; i < conn->result.ncols; i++) {
+			if (row->columns[i].type == STRING_TYPE)
+				free(row->columns[i].data.s);
+		}
+		free(row->columns);
+		free(row);
+	}
 
 	conn->result.ncols = total_cols;
 	conn->result.cols = calloc(total_cols, sizeof(struct tds_column));
