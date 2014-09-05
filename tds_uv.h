@@ -70,6 +70,16 @@ struct tds_result {
 	struct tds_rowlist row_list;
 };
 
+struct db_param {
+	char *name;
+	unsigned char status;
+	int type;
+	unsigned short maxlen;
+	short datalen;
+	unsigned char *value;
+
+};
+
 struct connection {
 	uv_loop_t *loop;
 	char ip_addr[16];
@@ -98,18 +108,15 @@ struct connection {
 
 	/* Last SQL query, saved in the case of errors */
 	char *sql;
+	/* Last stored procedure run, saved in the case of errors */
+	char *procname;
+	int n_params;
+	struct db_param *params;
 
 	/* Stores the current result, if any. */
 	struct tds_result result;
-};
 
-struct db_param {
-	char *name;
-	unsigned char status;
-	int type;
-	unsigned short maxlen;
-	unsigned short datalen;
-	unsigned char *value;
+	void *data;
 };
 
 /* Connection stages */

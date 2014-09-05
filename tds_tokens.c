@@ -434,6 +434,46 @@ tds_query(struct connection *conn, const char *sql)
 	uv_write(write_req, conn->tcp_handle, pkt, 1, after_write);
 }
 
+static void
+save_sp(struct connection *conn, const char *proc, struct db_param *params,
+    size_t nparams)
+{
+	int i;
+
+	/* First free existing sp data */
+	free(conn->procname);
+	for (i = 0; i < conn->n_params; i++) {
+		free(conn->params[i].name);
+		free(conn->params[i].value);
+	}
+	free(conn->params);
+
+	conn->procname = strdup(proc);
+	conn->n_params = nparams;
+	conn->params = calloc(nparams, sizeof(struct db_param));
+
+	for (i = 0; i < conn->n_params; i++) {
+		conn->params[i].name = strdup(params[i].name);
+		conn->params[i].status = params[i].status;
+		conn->params[i].type = params[i].type;
+		conn->params[i].maxlen = params[i].maxlen;
+		conn->params[i].datalen = params[i].datalen;
+		if (params[i].datalen != 0) {
+			if (params[i].type == INT4_TYPE) {
+				conn->params[i].datalen = 4;
+			}
+			if (conn->params[i].datalen <= 0) {
+				tds_debug(0, "parameter has negative length\n");
+			} else {
+				conn->params[i].value = malloc(conn->params[i].datalen);
+				memcpy(&conn->params[i].value, params[i].value,
+				    conn->params[i].datalen);
+			}
+		}
+	}
+}
+
+
 void
 exec_sp(struct connection *conn, const char *proc, struct db_param *params,
     size_t nparams)
@@ -443,6 +483,36 @@ exec_sp(struct connection *conn, const char *proc, struct db_param *params,
 	size_t procname_len;
 	unsigned char unicode_buf[1024];
 	size_t i;
+
+	/* Before executing a stored procedure  verify that this connection is
+	 * connected. If not we should connect to the DB first */
+	if (conn->stage == TDS_DISCONNECTED || conn->need_connect) {
+		/* Save proc and params */
+		save_sp(conn, proc, params, nparams);
+
+		if (conn->stage != TDS_DISCONNECTED) {
+			/* Disconnect first */
+			tds_disconnect(conn, 1);
+		} else {
+			tds_connect(conn);
+		}
+		return;
+	}
+
+	/* No query can be made since our stage is not idle */
+	if (conn->stage != TDS_IDLE) {
+		return;
+	}
+
+	if (conn->need_use && conn->in_use != 1) {
+		/* Do use */
+		save_sp(conn, proc, params, nparams);
+		tds_use_db(conn, conn->database);
+	}
+
+	conn->in_use = 0;
+	/* Indicate that the connection is now busy */
+	conn->stage = TDS_BUSY;
 
 	procname_len = strlen(proc);
 
