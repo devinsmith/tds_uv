@@ -43,6 +43,10 @@ enum {
 	EC_COLLATION = 7
 };
 
+#define DONE_FINAL 0x00
+#define DONE_MORE  0x01
+#define DONE_ERROR 0x02
+
 static void handle_envchange(struct connection *conn, uint16_t token_len);
 static void handle_message(struct connection *conn, int type, uint16_t token_len);
 static void handle_loginack(struct connection *conn, uint16_t token_len);
@@ -64,14 +68,17 @@ handle_done(struct connection *conn)
 	tds_debug(0, "Done, status %d, %d rows affected\n", status, row_count);
 
 	/* Check if this is the final done before calling any callbacks */
-	if (status == 0) {
+	if (status == DONE_FINAL) {
 		if (conn->stage == TDS_LOGGING_IN) {
 			/* Login succeeded, move to IDLE state, ready for queries */
 			conn->stage = TDS_IDLE;
 		} else if (conn->stage == TDS_BUSY) {
 			conn->stage = TDS_IDLE;
 			free(conn->sql);
+			free(conn->procname);
 		}
+	} else if (status == DONE_ERROR) {
+		conn->stage = TDS_IDLE;
 	}
 
 }
@@ -476,7 +483,7 @@ save_sp(struct connection *conn, const char *proc, struct db_param *params,
 				tds_debug(0, "parameter has negative length\n");
 			} else {
 				conn->params[i].value = malloc(conn->params[i].datalen);
-				memcpy(&conn->params[i].value, params[i].value,
+				memcpy(conn->params[i].value, params[i].value,
 				    conn->params[i].datalen);
 			}
 		}
@@ -494,11 +501,12 @@ exec_sp(struct connection *conn, const char *proc, struct db_param *params,
 	unsigned char unicode_buf[1024];
 	size_t i;
 
+	/* Save proc and params */
+	save_sp(conn, proc, params, nparams);
+
 	/* Before executing a stored procedure  verify that this connection is
 	 * connected. If not we should connect to the DB first */
 	if (conn->stage == TDS_DISCONNECTED || conn->need_connect) {
-		/* Save proc and params */
-		save_sp(conn, proc, params, nparams);
 
 		if (conn->stage != TDS_DISCONNECTED) {
 			/* Disconnect first */
@@ -516,7 +524,6 @@ exec_sp(struct connection *conn, const char *proc, struct db_param *params,
 
 	if (conn->need_use && conn->in_use != 1) {
 		/* Do use */
-		save_sp(conn, proc, params, nparams);
 		tds_use_db(conn, conn->database);
 	}
 
