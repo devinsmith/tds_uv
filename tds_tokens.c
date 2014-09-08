@@ -114,14 +114,21 @@ handle_message(struct connection *conn, int type, uint16_t token_len)
 
 	/* Error handler */
 	if (number > 0 && severity > 0) {
-		tds_debug(0, "Msg %d, Level %d, State %d\n", number, severity, state);
-		tds_debug(0, "Server '%s'", server_name);
-		if (*proc_name != '\0')
-			tds_debug(0, ", Procedure '%s'", proc_name);
-		if (line > 0)
-			tds_debug(0, ", Line %d\n", line);
-		tds_debug(0, "%s\n", text);
-		exit(1);
+		/* Call a handler / callback and give the caller some ability to
+		 * dictate what should happen with errors */
+		if (conn->on_error != NULL) {
+			conn->on_error(conn, number, severity, state, server_name, proc_name,
+			    line, text);
+		} else {
+			tds_debug(0, "Msg %d, Level %d, State %d\n", number, severity, state);
+			tds_debug(0, "Server '%s'", server_name);
+			if (*proc_name != '\0')
+				tds_debug(0, ", Procedure '%s'", proc_name);
+			if (line > 0)
+				tds_debug(0, ", Line %d\n", line);
+			tds_debug(0, "%s\n", text);
+			exit(1);
+		}
 	} else {
 		/* Info handler */
 		tds_debug(0, "%s\n", text);

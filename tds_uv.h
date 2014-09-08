@@ -105,6 +105,8 @@ struct connection {
 	struct tds_env env;
 
 	void (*on_ready)(struct connection *);
+	int (*on_error)(struct connection *, int, int, int,
+	    char *, char *, int, char *);
 
 	/* Last SQL query, saved in the case of errors */
 	char *sql;
