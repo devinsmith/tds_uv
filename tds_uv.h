@@ -131,6 +131,8 @@ struct connection {
 #define TDS_IDLE         6
 #define TDS_BUSY         7
 
+#include "tds_types.h"
+
 /* A generic UV eventful allocation function */
 void gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf);
 void after_write(uv_write_t *req, int status);
