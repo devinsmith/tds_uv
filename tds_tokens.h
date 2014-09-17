@@ -24,8 +24,6 @@
 
 void handle_tokens(struct connection *conn, size_t nread);
 void tds_query(struct connection *conn, const char *sql);
-void exec_sp(struct connection *conn, const char *proc,
-    struct db_param *params, size_t nparams);
 
 #endif /* __TDS_TOKENS_H__ */
 

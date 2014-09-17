@@ -139,6 +139,7 @@ void tds_connect_sa(struct connection *conn, const struct sockaddr *addr);
 int tds_connect(struct connection *conn);
 int tds_disconnect(struct connection *conn, int reconnect);
 void tds_use_db(struct connection *conn, const char *db);
+void tds_exec_sp(struct connection *, const char *, struct db_param *, size_t);
 
 struct connection *tds_connection_alloc(void);
 void tds_connection_free(struct connection *conn);

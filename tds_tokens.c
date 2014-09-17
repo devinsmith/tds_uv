@@ -499,7 +499,7 @@ save_sp(struct connection *conn, const char *proc, struct db_param *params,
 
 
 void
-exec_sp(struct connection *conn, const char *proc, struct db_param *params,
+tds_exec_sp(struct connection *conn, const char *proc, struct db_param *params,
     size_t nparams)
 {
 	uv_write_t *write_req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
