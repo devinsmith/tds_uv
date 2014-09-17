@@ -359,7 +359,6 @@ tds_connection_alloc(void)
 	struct connection *ret;
 
 	ret = calloc(1, sizeof(struct connection));
-	ret->buffer = malloc(65535);
 	ret->need_connect = 1;
 	ret->need_use = 1;
 
