@@ -75,7 +75,9 @@ handle_done(struct connection *conn)
 		} else if (conn->stage == TDS_BUSY) {
 			conn->stage = TDS_IDLE;
 			free(conn->sql);
+			conn->sql = NULL;
 			free(conn->procname);
+			conn->procname = NULL;
 		}
 	} else if (status == DONE_ERROR) {
 		conn->stage = TDS_IDLE;
