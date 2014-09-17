@@ -167,6 +167,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 	struct connection *conn = tcp->data;
 	uint16_t pkt_len;
 
+	conn->buffer = (unsigned char *)buf->base;
 	tds_debug(1, "+PACKET (bytes: %d)\n", nread);
 	if (nread < 0) {
 		if (nread != UV__EOF) {
@@ -237,6 +238,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		else if (conn->on_ready)
 			conn->on_ready(conn);
 	}
+	free(buf->base);
 }
 
 void
@@ -276,9 +278,8 @@ on_connect(uv_connect_t *req, int status)
 void
 gen_on_alloc(uv_handle_t* client, size_t suggested_size, uv_buf_t* buf)
 {
-	struct connection *conn = client->data;
-	buf->base = (char *)conn->buffer + conn->b_offset;
-	buf->len = suggested_size - conn->b_offset;
+	buf->base = malloc(suggested_size);
+	buf->len = suggested_size;
 }
 
 void
@@ -375,8 +376,13 @@ tds_connection_free(struct connection *conn)
 	free(conn->env.database);
 	free(conn->env.language);
 
-	/* Free any stored query */
+	/* Free any stored query or procedure */
 	free(conn->sql);
+	for (i = 0; i < conn->n_params; i++) {
+		free(conn->params[i].name);
+		free(conn->params[i].value);
+	}
+	free(conn->params);
 
 	/* Free results */
 	free(conn->result.cols);
@@ -390,7 +396,6 @@ tds_connection_free(struct connection *conn)
 		free(row);
 	}
 
-	free(conn->buffer);
 	free(conn);
 }
 
@@ -430,7 +435,7 @@ tds_set_sql_server(struct connection *conn, const char *dbserver)
 	char *p;
 
 	/* Extract instance */
-	snprintf(tmp, sizeof(tmp), dbserver);
+	snprintf(tmp, sizeof(tmp), "%s", dbserver);
 	if ((p = strchr(tmp, '\\')) != NULL) {
 		*p = '\0';
 

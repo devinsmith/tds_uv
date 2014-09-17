@@ -36,6 +36,12 @@
 #endif
 
 static void
+sqlrp_on_close(uv_handle_t *handle)
+{
+	free(handle);
+}
+
+static void
 sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
     const struct sockaddr *addr, unsigned flags)
 {
@@ -48,18 +54,13 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 	if (nread < 0) {
 		tds_debug(0, "detect port read error\n");
 		/* Error or EOF */
-		conn->b_offset = 0;
-
-		uv_close((uv_handle_t*) handle, NULL);
-		return;
+		goto done;
 	}
 
 	if (nread == 0) {
-		tds_debug(0, "nothing read\n");
 		/* Everything OK, but nothing read. */
-		conn->b_offset = 0;
-		uv_udp_recv_stop(handle);
-		return;
+		tds_debug(0, "nothing read\n");
+		goto done;
 	}
 
 	buf->base[nread - 1] = '\0';
@@ -112,8 +113,9 @@ sqlrp_on_read(uv_udp_t *handle, ssize_t nread, const uv_buf_t *buf,
 
 done:
 	conn->b_offset = 0;
+	free(buf->base);
 	uv_udp_recv_stop(handle);
-	free(handle);
+	uv_close((uv_handle_t *)handle, sqlrp_on_close);
 }
 
 static void
