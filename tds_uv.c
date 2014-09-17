@@ -233,7 +233,7 @@ tds_on_read(uv_stream_t *tcp, ssize_t nread, const uv_buf_t *buf)
 		if (conn->sql)
 			tds_query(conn, conn->sql);
 		else if (conn->procname)
-			exec_sp(conn, conn->procname, conn->params, conn->n_params);
+			tds_exec_sp(conn, conn->procname, conn->params, conn->n_params);
 		else if (conn->on_ready)
 			conn->on_ready(conn);
 	}
