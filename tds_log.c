@@ -24,6 +24,7 @@
 
 static int tds_global_loglevel;
 static FILE *tds_global_logfp;
+static int tds_global_logging_enabled;
 
 static void
 tds_debug_destroy(void)
@@ -39,6 +40,7 @@ tds_debug_init(void)
 {
 	tds_global_loglevel = 0;
 	tds_global_logfp = NULL;
+	tds_global_logging_enabled = 1;
 
 	atexit(tds_debug_destroy);
 }
@@ -65,6 +67,10 @@ void
 tds_debug(int lvl, const char *fmt, ...)
 {
 	va_list ap;
+
+	if (tds_global_logging_enabled == 0)
+		return;
+
 	va_start(ap, fmt);
 
 	if (tds_global_loglevel >= lvl) {
